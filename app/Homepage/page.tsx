@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../../components/ui/Navbar';
 import { Meal } from '@/types/meal';
 import { Dietician } from '@/types/dietician';
-
+import Image from 'next/image';
 
 // Animation variants
 const fadeIn = {
@@ -162,7 +162,7 @@ const handleDietician = () => {
             >
               <div className="md:flex">
                 <div className="md:flex-shrink-0 md:w-1/3 relative overflow-hidden">
-                  <img
+                  <Image
                     className="h-64 w-full object-cover md:h-full transition-transform duration-500 hover:scale-105"
                     src={recommendedMeal.imageUrl}
                     alt={recommendedMeal.name}
@@ -334,7 +334,7 @@ const handleDietician = () => {
                   <div className="md:w-1/2 bg-gray-50 rounded-lg p-6 flex items-center justify-center">
                     <div className="text-center">
                       <div className="mx-auto h-40 w-40 bg-indigo-100 rounded-full flex items-center justify-center mb-4 overflow-hidden">
-                        <img 
+                        <Image 
                           src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" 
                           alt="Dietician"
                           className="h-full w-full object-cover"
