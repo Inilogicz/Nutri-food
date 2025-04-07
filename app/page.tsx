@@ -145,15 +145,18 @@ export default function LandingPage() {
               transition={{ duration: 0.8 }}
               className="lg:w-1/2 relative"
             >
-              <div className="relative w-full max-w-lg lg:max-w-none mx-auto">
-                <div className="absolute top-0 left-0 w-full h-full bg-indigo-100 rounded-3xl -rotate-6"></div>
-                <div className="absolute top-0 left-0 w-full h-full bg-purple-100 rounded-3xl -rotate-3"></div>
+              <div className="relative w-full mx-auto items-end max-w-lg lg:max-w-none ">
+                <div className="absolute top-0 left-0 w-3/4 h-full bg-indigo-100 rounded-3xl -rotate-6"></div>
+                <div className="absolute top-0 left-0 w-3/4 h-full bg-purple-100 rounded-3xl -rotate-3"></div>
                 <Image
-                  src="/images/app-screenshot.png"
+                  src="/images/appprev.png"
                   alt="App preview"
-                  className="relative rounded-3xl shadow-2xl w-full h-0.5 "
+                  width={300}
+                  height={300}
+                  className="relative rounded-3xl shadow-2xl w-3/4 h-min "
                 />
               </div>
+              
             </motion.div>
           </div>
         </div>
@@ -271,12 +274,14 @@ export default function LandingPage() {
               transition={{ duration: 0.6 }}
               className="lg:w-1/2 relative"
             >
-              <div className="relative">
-                <div className="absolute -inset-4 bg-gradient-to-r from-indigo-200 to-purple-200 rounded-3xl blur-lg opacity-30"></div>
+              <div className="relative mx-auto justify-center items-center">
+                <div className="absolute mx-auto justify-center items-center -inset-4 bg-gradient-to-r from-indigo-200 to-purple-200 rounded-3xl blur-lg opacity-30"></div>
                 <Image
-                  src="/images/app-features.png"
+                  src="/images/fresh-foods.png"
                   alt="App features"
-                  className="relative rounded-3xl w-full shadow-2xl"
+                  width={300}
+                  height={300}
+                  className="relative justify-centermx-auto items-center rounded-3xl w-3/4 shadow-2xl"
                 />
               </div>
             </motion.div>

@@ -31,20 +31,20 @@ const staggerContainer = {
 
 export default function Home() {
   const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'night'>('morning');
-  const [recommendedMeal, setRecommendedMeal] = useState<Meal | null>(null);
+  const [recommendedMeal, setRecommendedMeal] = useState<any | null>(null);
   const [dieticians, setDieticians] = useState<Dietician[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ai' | 'dietician'>('ai');
-
+  const [mealTab, setMealTab] = useState<'ingredients' | 'instructions' | 'nutrition'>('ingredients');
   
-const router = useRouter();
+  const router = useRouter();
 
-const handleAI = () => {
-  router.push('/AI');
-};
-const handleDietician = () => {
-  router.push('/AI');
-};
+  const handleAI = () => {
+    router.push('/AI');
+  };
+  const handleDietician = () => {
+    router.push('/AI');
+  };
 
   // Determine time of day
   useEffect(() => {
@@ -60,10 +60,9 @@ const handleDietician = () => {
       try {
         setIsLoading(true);
         
-        const [mealRes, dieticiansRes] = await Promise.all([
-          fetch(`/api/meals/recommended?time=${timeOfDay}`),
-          fetch('/api/dieticians')
-        ]);
+        // Using the provided API endpoint
+        const mealRes = await fetch('/api/proxy/meal-suggestions/');
+        const dieticiansRes = await fetch('/api/dieticians');
         
         if (!mealRes.ok || !dieticiansRes.ok) throw new Error('Failed to fetch data');
         
@@ -72,7 +71,7 @@ const handleDietician = () => {
           dieticiansRes.json()
         ]);
         
-        setRecommendedMeal(mealData.meal);
+        setRecommendedMeal(mealData);
         setDieticians(dieticiansData.dieticians);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -84,8 +83,21 @@ const handleDietician = () => {
     fetchData();
   }, [timeOfDay]);
 
-  return (
+  // Placeholder image based on meal name
+  const getMealImage = (mealName: string) => {
+    const mealImages: Record<string, string> = {
+      'Quinoa': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+      'Stir-Fry': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+    };
     
+    const matchedKey = Object.keys(mealImages).find(key => 
+      mealName.toLowerCase().includes(key.toLowerCase())
+    );
+    
+    return matchedKey ? mealImages[matchedKey] : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
+  };
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden -z-10">
@@ -103,10 +115,8 @@ const handleDietician = () => {
         />
       </div>
 
-      {/* <Navbar /> */}
-      
       <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
+        {/* Hero Section - Unchanged */}
         <motion.section 
           initial="hidden"
           animate="visible"
@@ -127,7 +137,7 @@ const handleDietician = () => {
           </motion.p>
         </motion.section>
 
-        {/* Recommended Meal Section */}
+        {/* Updated Recommended Meal Section */}
         <motion.section 
           initial="hidden"
           animate="visible"
@@ -164,39 +174,118 @@ const handleDietician = () => {
                 <div className="md:flex-shrink-0 md:w-1/3 relative overflow-hidden">
                   <Image
                     className="h-64 w-full object-cover md:h-full transition-transform duration-500 hover:scale-105"
-                    src={recommendedMeal.imageUrl}
+                    src={getMealImage(recommendedMeal.name)}
                     alt={recommendedMeal.name}
+                    width={400}
+                    height={400}
+                    priority={true}
                   />
-                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium shadow-sm">
-                    {recommendedMeal.category}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                    <div className="flex items-center gap-4 text-white/90">
+                      <span className="flex items-center text-sm">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {recommendedMeal.preparation_time} mins
+                      </span>
+                      <span className="flex items-center text-sm">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        {recommendedMeal.calories} kcal
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="p-6 md:p-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {recommendedMeal.name}
-                  </h3>
-                  <p className="text-gray-600 mb-6">{recommendedMeal.description}</p>
-                  
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Nutrition Info</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-indigo-50 p-3 rounded-lg text-center hover:bg-indigo-100 transition-colors">
-                        <p className="text-sm text-gray-500">Calories</p>
-                        <p className="font-bold text-indigo-700">{recommendedMeal.calories}kcal</p>
-                      </div>
-                      <div className="bg-indigo-50 p-3 rounded-lg text-center hover:bg-indigo-100 transition-colors">
-                        <p className="text-sm text-gray-500">Protein</p>
-                        <p className="font-bold text-indigo-700">{recommendedMeal.protein}g</p>
-                      </div>
-                      <div className="bg-indigo-50 p-3 rounded-lg text-center hover:bg-indigo-100 transition-colors">
-                        <p className="text-sm text-gray-500">Carbs</p>
-                        <p className="font-bold text-indigo-700">{recommendedMeal.carbs}g</p>
-                      </div>
-                    </div>
+                  {/* Meal Tabs */}
+                  <div className="border-b border-gray-200 mb-6">
+                    <nav className="flex -mb-px">
+                      <button
+                        onClick={() => setMealTab('ingredients')}
+                        className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'ingredients' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                      >
+                        Ingredients
+                      </button>
+                      <button
+                        onClick={() => setMealTab('instructions')}
+                        className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'instructions' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                      >
+                        Instructions
+                      </button>
+                      <button
+                        onClick={() => setMealTab('nutrition')}
+                        className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'nutrition' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                      >
+                        Nutrition
+                      </button>
+                    </nav>
                   </div>
-                  <button className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
-                    View Recipe
-                  </button>
+
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={mealTab}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {mealTab === 'ingredients' && (
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-4">{recommendedMeal.name}</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {recommendedMeal.ingredients.map((ingredient: any, index: number) => (
+                              <div key={index} className="flex items-start p-2 bg-gray-50 rounded-lg">
+                                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium mr-3 mt-0.5">
+                                  {index + 1}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{ingredient.name}</p>
+                                  <p className="text-sm text-gray-500">{ingredient.quantity}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {mealTab === 'instructions' && (
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-4">Preparation</h3>
+                          <ol className="space-y-3">
+                            {recommendedMeal.instructions.map((step: string, index: number) => (
+                              <li key={index} className="flex">
+                                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium mr-3 mt-0.5">
+                                  {index + 1}
+                                </span>
+                                <p className="text-gray-700">{step}</p>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {mealTab === 'nutrition' && (
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-4">Nutritional Information</h3>
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-indigo-50 p-4 rounded-lg">
+                              <p className="text-sm text-indigo-600 font-medium">Calories</p>
+                              <p className="text-xl font-bold text-gray-900">{recommendedMeal.calories} kcal</p>
+                            </div>
+                            <div className="bg-purple-50 p-4 rounded-lg">
+                              <p className="text-sm text-purple-600 font-medium">Prep Time</p>
+                              <p className="text-xl font-bold text-gray-900">{recommendedMeal.preparation_time} mins</p>
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <h4 className="font-bold text-gray-900 mb-2">Dietary Notes</h4>
+                            <p className="text-gray-700">{recommendedMeal.dietary_notes}</p>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.div>
@@ -210,7 +299,7 @@ const handleDietician = () => {
           )}
         </motion.section>
 
-        {/* Consultation Section */}
+        {/* Rest of the components remain unchanged */}
         <motion.section 
           initial="hidden"
           animate="visible"
@@ -337,6 +426,8 @@ const handleDietician = () => {
                         <Image 
                           src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" 
                           alt="Dietician"
+                          width={160}
+                          height={160}
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -348,8 +439,6 @@ const handleDietician = () => {
             </div>
           </motion.div>
         </motion.section>
-
-       
 
         {/* Final CTA Section */}
         <motion.section

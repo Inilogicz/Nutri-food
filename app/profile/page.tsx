@@ -53,6 +53,9 @@ export default function ProfilePage() {
   });
   const [newAllergy, setNewAllergy] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingConditionId, setEditingConditionId] = useState<number | null>(null);
+  const [editingSurgeryId, setEditingSurgeryId] = useState<number | null>(null);
+  const [editingAllergyId, setEditingAllergyId] = useState<number | null>(null);
   const router = useRouter();
 
   // Fetch profile data
@@ -62,9 +65,11 @@ export default function ProfilePage() {
         setLoading(true);
         
         // Fetch basic profile info
-        const profileRes = await fetch('https://devsammy.online/api/profile/', {
+        const profileRes = await fetch('/api/proxy/profile', {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
         });
         
@@ -72,9 +77,11 @@ export default function ProfilePage() {
         const profileData = await profileRes.json();
         
         // Fetch height and weight
-        const hwRes = await fetch('https://devsammy.online/api/profile/height-weight', {
+        const hwRes = await fetch('/api/proxy/profile/height-weight', {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
         });
         
@@ -109,8 +116,8 @@ export default function ProfilePage() {
       setLoading(true);
       
       // Update height and weight
-      const hwResponse = await fetch('https://devsammy.online/api/profile/height-weight', {
-        method: 'POST',
+      const hwResponse = await fetch('/api/proxy/profile/height-weight', {
+        method: 'PUT', // Changed from POST to PUT
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -132,11 +139,11 @@ export default function ProfilePage() {
     }
   };
 
-  // Add health condition
+  // Health Conditions
   const addHealthCondition = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://devsammy.online/api/health-conditions/', {
+      const response = await fetch('/api/proxy/health-conditions', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -161,14 +168,47 @@ export default function ProfilePage() {
     }
   };
 
-  // Remove health condition
+  const updateHealthCondition = async () => {
+    if (!editingConditionId) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/proxy/health-conditions/${editingConditionId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(newCondition),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update health condition');
+      
+      const data = await response.json();
+      setProfile({
+        ...profile,
+        health_conditions: profile.health_conditions.map(hc => 
+          hc.id === editingConditionId ? data.data : hc
+        )
+      });
+      setNewCondition({ name: '', status: 'current', notes: '' });
+      setEditingConditionId(null);
+      toast.success('Health condition updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update health condition');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const removeHealthCondition = async (id: number) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://devsammy.online/api/health-conditions/${id}`, {
+      const response = await fetch(`/api/proxy/health-conditions/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
       });
       
@@ -186,11 +226,20 @@ export default function ProfilePage() {
     }
   };
 
-  // Add surgical history
+  const handleEditCondition = (condition: ProfileData['health_conditions'][0]) => {
+    setNewCondition({
+      name: condition.name,
+      status: condition.status,
+      notes: condition.notes
+    });
+    setEditingConditionId(condition.id);
+  };
+
+  // Surgical Histories
   const addSurgicalHistory = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://devsammy.online/api/surgical-histories/', {
+      const response = await fetch('/api/proxy/surgical-histories', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -220,14 +269,47 @@ export default function ProfilePage() {
     }
   };
 
-  // Remove surgical history
+  const updateSurgicalHistory = async () => {
+    if (!editingSurgeryId) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/proxy/surgical-histories/${editingSurgeryId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(newSurgery),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update surgical history');
+      
+      const data = await response.json();
+      setProfile({
+        ...profile,
+        surgical_histories: profile.surgical_histories.map(sh => 
+          sh.id === editingSurgeryId ? data.data : sh
+        )
+      });
+      setNewSurgery({ type: '', health_condition: '', surgery_date: '', notes: '' });
+      setEditingSurgeryId(null);
+      toast.success('Surgical history updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update surgical history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const removeSurgicalHistory = async (id: number) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://devsammy.online/api/surgical-histories/${id}`, {
+      const response = await fetch(`/api/proxy/surgical-histories/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
       });
       
@@ -245,11 +327,21 @@ export default function ProfilePage() {
     }
   };
 
-  // Add food allergy
+  const handleEditSurgery = (surgery: ProfileData['surgical_histories'][0]) => {
+    setNewSurgery({
+      type: surgery.type,
+      health_condition: surgery.health_condition,
+      surgery_date: surgery.surgery_date,
+      notes: surgery.notes
+    });
+    setEditingSurgeryId(surgery.id);
+  };
+
+  // Food Allergies
   const addFoodAllergy = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://devsammy.online/api/food-allergies/', {
+      const response = await fetch('/api/proxy/food-allergies', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -274,14 +366,47 @@ export default function ProfilePage() {
     }
   };
 
-  // Remove food allergy
+  const updateFoodAllergy = async () => {
+    if (!editingAllergyId) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/proxy/food-allergies/${editingAllergyId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ name: newAllergy }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update food allergy');
+      
+      const data = await response.json();
+      setProfile({
+        ...profile,
+        food_allergies: profile.food_allergies.map(fa => 
+          fa.id === editingAllergyId ? data.data : fa
+        )
+      });
+      setNewAllergy('');
+      setEditingAllergyId(null);
+      toast.success('Food allergy updated');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update food allergy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const removeFoodAllergy = async (id: number) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://devsammy.online/api/food-allergies/${id}`, {
+      const response = await fetch(`/api/proxy/food-allergies/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
       });
       
@@ -299,6 +424,11 @@ export default function ProfilePage() {
     }
   };
 
+  const handleEditAllergy = (allergy: ProfileData['food_allergies'][0]) => {
+    setNewAllergy(allergy.name);
+    setEditingAllergyId(allergy.id);
+  };
+
   if (loading && !isEditing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -309,7 +439,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      <Navbar/>
+      {/* <Navbar /> */}
       
       {/* Header */}
       <div className="bg-white shadow-sm">
@@ -318,7 +448,15 @@ export default function ProfilePage() {
           {isEditing ? (
             <div className="flex space-x-2">
               <button
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditingConditionId(null);
+                  setEditingSurgeryId(null);
+                  setEditingAllergyId(null);
+                  setNewCondition({ name: '', status: 'current', notes: '' });
+                  setNewSurgery({ type: '', health_condition: '', surgery_date: '', notes: '' });
+                  setNewAllergy('');
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Cancel
@@ -414,17 +552,26 @@ export default function ProfilePage() {
             {profile.health_conditions.length > 0 ? (
               <div className="mt-4 space-y-3">
                 {profile.health_conditions.map((condition) => (
-                  <div key={condition.id} className="border-l-4 border-blue-200 pl-4 py-2">
+                  <div key={`condition-${condition.id}`} className="border-l-4 border-blue-200 pl-4 py-2">
                     <div className="flex justify-between">
                       <h3 className="text-sm font-medium text-gray-900">{condition.name}</h3>
                       {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => removeHealthCondition(condition.id)}
-                          className="text-gray-500 hover:text-red-500 text-sm"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditCondition(condition)}
+                            className="text-gray-500 hover:text-blue-500 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeHealthCondition(condition.id)}
+                            className="text-gray-500 hover:text-red-500 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">Status: {condition.status}</p>
@@ -440,7 +587,9 @@ export default function ProfilePage() {
 
             {isEditing && (
               <div className="mt-6 space-y-4">
-                <h3 className="text-sm font-medium text-gray-900">Add New Health Condition</h3>
+                <h3 className="text-sm font-medium text-gray-900">
+                  {editingConditionId ? 'Edit Health Condition' : 'Add New Health Condition'}
+                </h3>
                 <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-3">
                     <label className="block text-sm font-medium text-gray-700">Condition Name</label>
@@ -478,12 +627,24 @@ export default function ProfilePage() {
                   <div className="sm:col-span-6">
                     <button
                       type="button"
-                      onClick={addHealthCondition}
+                      onClick={editingConditionId ? updateHealthCondition : addHealthCondition}
                       disabled={!newCondition.name}
                       className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Add Condition
+                      {editingConditionId ? 'Update Condition' : 'Add Condition'}
                     </button>
+                    {editingConditionId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingConditionId(null);
+                          setNewCondition({ name: '', status: 'current', notes: '' });
+                        }}
+                        className="ml-2 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -496,17 +657,26 @@ export default function ProfilePage() {
             {profile.surgical_histories.length > 0 ? (
               <div className="mt-4 space-y-4">
                 {profile.surgical_histories.map((surgery) => (
-                  <div key={surgery.id} className="border-l-4 border-indigo-200 pl-4 py-2">
+                  <div key={`surgery-${surgery.id}`} className="border-l-4 border-indigo-200 pl-4 py-2">
                     <div className="flex justify-between">
                       <h3 className="text-sm font-medium text-gray-900">{surgery.type}</h3>
                       {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => removeSurgicalHistory(surgery.id)}
-                          className="text-gray-500 hover:text-red-500 text-sm"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditSurgery(surgery)}
+                            className="text-gray-500 hover:text-blue-500 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSurgicalHistory(surgery.id)}
+                            className="text-gray-500 hover:text-red-500 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
@@ -518,7 +688,7 @@ export default function ProfilePage() {
                     {surgery.notes && (
                       <p className="text-sm text-gray-700 mt-1">Notes: {surgery.notes}</p>
                     )}
-                  </div>
+                  </div> 
                 ))}
               </div>
             ) : (
@@ -527,7 +697,9 @@ export default function ProfilePage() {
 
             {isEditing && (
               <div className="mt-6 space-y-4">
-                <h3 className="text-sm font-medium text-gray-900">Add New Surgery</h3>
+                <h3 className="text-sm font-medium text-gray-900">
+                  {editingSurgeryId ? 'Edit Surgery' : 'Add New Surgery'}
+                </h3>
                 <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-3">
                     <label className="block text-sm font-medium text-gray-700">Type of surgery</label>
@@ -572,12 +744,24 @@ export default function ProfilePage() {
                   <div className="sm:col-span-6">
                     <button
                       type="button"
-                      onClick={addSurgicalHistory}
+                      onClick={editingSurgeryId ? updateSurgicalHistory : addSurgicalHistory}
                       disabled={!newSurgery.type || !newSurgery.surgery_date}
                       className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Add Surgery
+                      {editingSurgeryId ? 'Update Surgery' : 'Add Surgery'}
                     </button>
+                    {editingSurgeryId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingSurgeryId(null);
+                          setNewSurgery({ type: '', health_condition: '', surgery_date: '', notes: '' });
+                        }}
+                        className="ml-2 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -590,16 +774,25 @@ export default function ProfilePage() {
             {profile.food_allergies.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {profile.food_allergies.map((allergy) => (
-                  <div key={allergy.id} className="flex items-center bg-red-50 rounded-full px-3 py-1 text-sm text-red-800">
+                  <div key={`allergy-${allergy.id}`} className="flex items-center bg-red-50 rounded-full px-3 py-1 text-sm text-red-800">
                     <span>{allergy.name}</span>
                     {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => removeFoodAllergy(allergy.id)}
-                        className="ml-1 text-red-500 hover:text-red-700"
-                      >
-                        &times;
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleEditAllergy(allergy)}
+                          className="ml-1 text-blue-500 hover:text-blue-700"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFoodAllergy(allergy.id)}
+                          className="ml-1 text-red-500 hover:text-red-700"
+                        >
+                          &times;
+                        </button>
+                      </>
                     )}
                   </div>
                 ))}
@@ -614,17 +807,29 @@ export default function ProfilePage() {
                   type="text"
                   value={newAllergy}
                   onChange={(e) => setNewAllergy(e.target.value)}
-                  placeholder="Add a food allergy"
+                  placeholder={editingAllergyId ? 'Edit allergy name' : 'Add a food allergy'}
                   className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
                 <button
                   type="button"
-                  onClick={addFoodAllergy}
+                  onClick={editingAllergyId ? updateFoodAllergy : addFoodAllergy}
                   disabled={!newAllergy.trim()}
                   className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add
+                  {editingAllergyId ? 'Update' : 'Add'}
                 </button>
+                {editingAllergyId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAllergyId(null);
+                      setNewAllergy('');
+                    }}
+                    className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             )}
           </div>
