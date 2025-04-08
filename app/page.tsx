@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import Navbar from '../components/ui/Navbar';
+// import Navbar from '../components/ui/Navbar';
 import Image from 'next/image';
 
 // Animation variants
@@ -22,10 +22,10 @@ const item = {
   show: { opacity: 1, y: 0 }
 };
 
-const fadeIn = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.8 } }
-};
+// const fadeIn = {
+//   hidden: { opacity: 0 },
+//   show: { opacity: 1, transition: { duration: 0.8 } }
+// };
 
 const slideUp = {
   hidden: { opacity: 0, y: 50 },
@@ -33,14 +33,14 @@ const slideUp = {
 };
 
 export default function LandingPage() {
-  const [email, setEmail] = useState('');
+  // const [email, setEmail] = useState('');
   const [isHovered, setIsHovered] = useState<number | null>(null);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.push(`/signup?email=${encodeURIComponent(email)}`);
-  };
+  // const handleSubmit = (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   router.push(`/signup?email=${encodeURIComponent(email)}`);
+  // };
 
   const features = [
     {
@@ -320,7 +320,7 @@ export default function LandingPage() {
                 variants={item}
                 className="bg-white p-8 rounded-2xl shadow-md"
               >
-                <div className="text-indigo-500 text-4xl mb-4">"</div>
+                <div className="text-indigo-500 text-4xl mb-4">&quot;</div>
                 <p className="text-gray-700 italic mb-6">{testimonial.quote}</p>
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold mr-4">
@@ -350,7 +350,7 @@ export default function LandingPage() {
               Ready to Transform Your Health?
             </motion.h2>
             <motion.p variants={item} className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
-              Join thousands of users who've achieved their health goals with NutriAI.
+              Join thousands of users who have achieved their health goals with NutriAI.
             </motion.p>
             <motion.div variants={item}>
               <button

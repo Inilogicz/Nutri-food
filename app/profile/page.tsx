@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Navbar from '../../components/ui/Navbar';
+// import { useRouter } from 'next/navigation';
+// import Navbar from '../../components/ui/Navbar';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 
@@ -56,7 +56,7 @@ export default function ProfilePage() {
   const [editingConditionId, setEditingConditionId] = useState<number | null>(null);
   const [editingSurgeryId, setEditingSurgeryId] = useState<number | null>(null);
   const [editingAllergyId, setEditingAllergyId] = useState<number | null>(null);
-  const router = useRouter();
+  // const router = useRouter();
 
   // Fetch profile data
   useEffect(() => {

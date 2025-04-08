@@ -1,7 +1,7 @@
 module.exports = {
   reactStrictMode: true,
   images: {
-    domains: ['images.unsplash.com'],
+    domains: ['images.unsplash.com', 'devsammy.online'], // Add the API domain here
   },
   async rewrites() {
     return [
@@ -14,7 +14,8 @@ module.exports = {
   async headers() {
     return [
       {
-        source: '/api/proxy/:path*',
+        // Apply these headers to all routes
+        source: '/:path*',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },

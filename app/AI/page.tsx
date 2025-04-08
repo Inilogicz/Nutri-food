@@ -2,70 +2,150 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+
+type Ingredient = {
+  name: string;
+  quantity: string;
+};
+
+type MealSuggestion = {
+  name: string;
+  ingredients: Ingredient[];
+  instructions: string[];
+  calories: number;
+  preparation_time: number;
+  dietary_notes: string;
+};
 
 type Message = {
   id: string;
   sender: 'user' | 'ai';
-  content: string;
+  content: string | MealSuggestion;
   timestamp: Date;
+  type: 'text' | 'meal';
 };
 
 export default function AIChatPage() {
+  const { isAuthenticated,  loading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       sender: 'ai',
-      content: 'Hello! I\'m your NutriAI assistant. How can I help you with your nutrition goals today?',
-      timestamp: new Date()
+      content: isAuthenticated 
+        ? 'Hello! I can suggest meals based on ingredients you have. List what you have (e.g., "chicken, rice, tomatoes")'
+        : 'Please sign in to access meal suggestions',
+      timestamp: new Date(),
+      type: 'text'
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Sample AI responses
-  const aiResponses = [
-    "Based on your profile, I'd recommend increasing your protein intake at breakfast. Try adding Greek yogurt or eggs to your morning meal.",
-    "That's a great question! Avocados are an excellent source of healthy fats and fiber. About 1/2 to 1 whole avocado per day is a good amount for most people.",
-    "For your iron levels, I suggest incorporating more leafy greens, lentils, and lean meats into your diet. Pair them with vitamin C-rich foods for better absorption.",
-    "I can analyze your meal if you describe it to me. Just list the main components and approximate portions.",
-    "Based on your activity level, you should aim for about 2.2 liters of water per day. Remember to hydrate before and after workouts."
-  ];
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  useEffect(() => {
+    if (!authLoading) {
+      setMessages([
+        {
+          id: '1',
+          sender: 'ai',
+          content: isAuthenticated
+            ? 'Hello! I can suggest meals based on ingredients you have. List what you have (e.g., "chicken, rice, tomatoes")'
+            : 'Please sign in to access meal suggestions',
+          timestamp: new Date(),
+          type: 'text',
+        }
+      ]);
+    }
+  }, [isAuthenticated, authLoading]);
+  
 
-    // Add user message
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !isAuthenticated) return;
+
     const userMessage: Message = {
       id: Date.now().toString(),
       sender: 'user',
       content: inputValue,
-      timestamp: new Date()
+      timestamp: new Date(),
+      type: 'text'
     };
     
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    // Simulate AI response after a delay
-    setTimeout(() => {
-      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        content: randomResponse,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiMessage]);
+    try {
+      const ingredients = extractIngredients(inputValue);
+      if (ingredients.length > 0) {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Authentication required');
+        
+        const mealSuggestion = await getMealSuggestion(ingredients, token);
+        addAiMessage(mealSuggestion, 'meal');
+      } else {
+        addAiMessage('Please list ingredients (e.g., "chicken, rice, tomatoes") to get meal suggestions.', 'text');
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  const extractIngredients = (text: string): string[] => {
+    return text
+      .split(/[,;/\n]/)
+      .map(item => item.trim().toLowerCase())
+      .filter(item => item.length > 0 && !['and', 'with', 'plus'].includes(item));
+  };
+
+  const getMealSuggestion = async (ingredients: string[], token: string): Promise<MealSuggestion> => {
+    const response = await fetch('https://devsammy.online/api/meal-suggestions/ingredients', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ ingredients })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to fetch meal suggestion');
+    }
+
+    return await response.json();
+  };
+
+  const addAiMessage = (content: string | MealSuggestion, type: 'text' | 'meal') => {
+    const aiMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      sender: 'ai',
+      content,
+      timestamp: new Date(),
+      type
+    };
+    setMessages(prev => [...prev, aiMessage]);
+  };
+
+  const handleError = (error: unknown) => {
+    let errorMessage = 'Sorry, I encountered an error. Please try again.';
+    
+    if (error instanceof Error) {
+      if (error.message === 'Authentication required') {
+        errorMessage = 'Please sign in to use the meal suggestion feature.';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Unable to connect to the service. Please check your connection.';
+      }
+    }
+
+    addAiMessage(errorMessage, 'text');
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -74,32 +154,67 @@ export default function AIChatPage() {
     }
   };
 
+  const formatMealSuggestion = (meal: MealSuggestion) => {
+    return (
+      <div className="space-y-3">
+        <h3 className="font-bold text-lg">{meal.name}</h3>
+        
+        <div className="bg-indigo-50 p-3 rounded-lg">
+          <h4 className="font-semibold text-indigo-800">Ingredients:</h4>
+          <ul className="list-disc pl-5 space-y-1 mt-2">
+            {meal.ingredients.map((ingredient, index) => (
+              <li key={index} className="text-gray-700">
+                <span className="font-medium">{ingredient.quantity}</span> {ingredient.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="bg-green-50 p-3 rounded-lg">
+          <h4 className="font-semibold text-green-800">Instructions:</h4>
+          <ol className="list-decimal pl-5 space-y-2 mt-2">
+            {meal.instructions.map((instruction, index) => (
+              <li key={index} className="text-gray-700">{instruction}</li>
+            ))}
+          </ol>
+        </div>
+        
+        <div className="flex flex-wrap gap-4 text-sm">
+          <span className="flex items-center gap-1">
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {meal.preparation_time} mins
+          </span>
+          <span className="flex items-center gap-1">
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {meal.calories} calories
+          </span>
+        </div>
+        
+        {meal.dietary_notes && (
+          <div className="bg-yellow-50 p-3 rounded-lg text-sm text-yellow-800">
+            <p className="font-medium">Dietary Notes:</p>
+            <p>{meal.dietary_notes}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex flex-col h-screen bg-gray-50 items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+        <p className="mt-4 text-gray-600">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm py-4 px-6 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-         <Link href="/Homepage">
-         <div className="bg-indigo-100 p-2 rounded-full">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-         </Link>
-            <div>
-              <h1 className="font-bold text-gray-900">NutriAI Assistant</h1>
-              <p className="text-xs text-gray-500">Always available</p>
-            </div>
-          </div>
-          <button className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
       {/* Chat Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
@@ -117,7 +232,11 @@ export default function AIChatPage() {
                     : 'bg-white border border-gray-200 rounded-bl-none shadow-sm'
                 }`}
               >
-                <p>{message.content}</p>
+                {message.type === 'text' ? (
+                  <p>{message.content as string}</p>
+                ) : (
+                  formatMealSuggestion(message.content as MealSuggestion)
+                )}
                 <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-indigo-200' : 'text-gray-400'}`}>
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -153,14 +272,17 @@ export default function AIChatPage() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me anything about nutrition..."
+              placeholder={isAuthenticated 
+                ? "List ingredients you have (e.g., chicken, rice, tomatoes)..." 
+                : "Sign in to get meal suggestions..."}
               className="w-full bg-transparent border-none focus:ring-0 resize-none py-3 px-4 max-h-32"
               rows={1}
+              disabled={!isAuthenticated}
             />
           </div>
           <button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
+            disabled={!inputValue.trim() || isLoading || !isAuthenticated}
             className="p-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,30 +291,34 @@ export default function AIChatPage() {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          NutriAI can analyze meals, suggest recipes, and answer nutrition questions
+          {isAuthenticated 
+            ? "Get personalized meal suggestions based on your ingredients" 
+            : "Sign in to access meal suggestions"}
         </p>
       </div>
 
       {/* Quick Suggestions */}
-      <div className="bg-gray-50 border-t p-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Quick questions</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            "Breakfast ideas?",
-            "Is avocado healthy?",
-            "Iron-rich foods?",
-            "Analyze my meal"
-          ].map((question) => (
-            <button
-              key={question}
-              onClick={() => setInputValue(question)}
-              className="text-xs bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50 transition-colors text-gray-700 truncate"
-            >
-              {question}
-            </button>
-          ))}
+      {isAuthenticated && (
+        <div className="bg-gray-50 border-t p-4">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Try these combinations</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              "chicken, rice, tomatoes",
+              "eggs, spinach, cheese",
+              "beef, potatoes, carrots",
+              "salmon, broccoli, rice"
+            ].map((question) => (
+              <button
+                key={question}
+                onClick={() => setInputValue(question)}
+                className="text-xs bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50 transition-colors text-gray-700 truncate"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

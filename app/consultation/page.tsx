@@ -1,326 +1,191 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import { calculateSessionCost } from '../../lib/billing';
-import  Navbar from '../../components/ui/Navbar'; 
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+// import Link from 'next/link';
+// import { toast } from 'react-hot-toast';
+// import Navbar from '../../components/ui/Navbar';
 
-interface Message {
+type Message = {
   id: string;
-  sender: 'user' | 'dietician';
+  sender: 'user' | 'ai';
   content: string;
   timestamp: Date;
-}
+};
 
-interface Session {
-  id: string;
-  dieticianId: string;
-  dieticianName: string;
-  ratePerMinute: number;
-  startTime: Date;
-  endTime: Date | null;
-  status: 'active' | 'completed' | 'pending';
-}
-
-export default function ConsultationPage() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [activeSession, setActiveSession] = useState<Session | null>(null);
-  const [sessionDuration, setSessionDuration] = useState(0);
-  const [sessionCost, setSessionCost] = useState(0);
-  const [userBalance, setUserBalance] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-
-  // Fetch user balance and active session
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [balanceRes, sessionRes] = await Promise.all([
-          fetch('/api/user/balance'),
-          fetch('/api/sessions/active'),
-        ]);
-
-        if (!balanceRes.ok) throw new Error('Failed to fetch balance');
-        if (!sessionRes.ok) throw new Error('Failed to fetch session');
-
-        const balanceData = await balanceRes.json();
-        const sessionData = await sessionRes.json();
-
-        setUserBalance(balanceData.balance);
-        setActiveSession(sessionData.session);
-        
-        if (sessionData.session) {
-          fetchMessages(sessionData.session.id);
-          startSessionTimer(sessionData.session);
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to load data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Update session duration and cost
-  useEffect(() => {
-    if (!activeSession) return;
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const start = new Date(activeSession.startTime);
-      const minutes = Math.floor((now.getTime() - start.getTime()) / (1000 * 60));
-      
-      setSessionDuration(minutes);
-      setSessionCost(calculateSessionCost(minutes, activeSession.ratePerMinute));
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, [activeSession]);
-
-  const fetchMessages = async (sessionId: string) => {
-    try {
-      const res = await fetch(`/api/sessions/${sessionId}/messages`);
-      if (!res.ok) throw new Error('Failed to fetch messages');
-      const data = await res.json();
-      setMessages(data.messages);
-    } catch (error) {
-      toast.error('Failed to load messages');
+export default function AIChatPage() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      sender: 'ai',
+      content: 'Hello! I can help answer your nutrition questions. What would you like to know?',
+      timestamp: new Date()
     }
-  };
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const startSessionTimer = (session: Session) => {
-    // Already handled in the useEffect
-  };
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeSession) return;
+    if (!inputValue.trim()) return;
+
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      sender: 'user',
+      content: inputValue,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsLoading(true);
 
     try {
-      // First verify balance
-      const balanceCheck = await fetch('/api/user/balance/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: sessionCost }),
-      });
-
-      if (!balanceCheck.ok) {
-        const errorData = await balanceCheck.json();
-        if (errorData.code === 'INSUFFICIENT_BALANCE') {
-          toast.error(
-            <div className="flex flex-col">
-              <span>Insufficient balance for this session</span>
-              <button 
-                onClick={() => router.push('/top-up')}
-                className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                Top Up Now
-              </button>
-            </div>,
-            { duration: 10000 }
-          );
-          return;
-        }
-        throw new Error('Failed to verify balance');
-      }
-
-      // Send message
-      const res = await fetch('/api/sessions/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: activeSession.id,
-          content: newMessage,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to send message');
-
-      const sentMessage = await res.json();
-      setMessages([...messages, sentMessage]);
-      setNewMessage('');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to send message');
-    }
-  };
-
-  const startNewSession = async (dieticianId: string) => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dieticianId }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        if (errorData.code === 'INSUFFICIENT_BALANCE') {
-          toast.error(
-            <div className="flex flex-col">
-              <span>Insufficient balance to start session</span>
-              <button 
-                onClick={() => router.push('/top-up')}
-                className="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                Top Up Now
-              </button>
-            </div>,
-            { duration: 10000 }
-          );
-          return;
-        }
-        throw new Error(errorData.message || 'Failed to start session');
-      }
-
-      const session = await res.json();
-      setActiveSession(session);
-      startSessionTimer(session);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to start session');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const endSession = async () => {
-    try {
-      if (!activeSession) return;
+      // Simulate AI response (replace with actual API call)
+      const response = await generateAIResponse(inputValue);
       
-      setIsLoading(true);
-      const res = await fetch(`/api/sessions/${activeSession.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
-      });
-
-      if (!res.ok) throw new Error('Failed to end session');
-
-      const updatedSession = await res.json();
-      setActiveSession(updatedSession);
-      toast.success('Session ended successfully');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to end session');
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        content: response,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
+  // Replace this with your actual API call
+  const generateAIResponse = async (input: string): Promise<string> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Simple response logic - replace with your AI integration
+    if (input.toLowerCase().includes('calorie')) {
+      return "Calorie needs vary by individual. On average, adult women need 1,600-2,400 calories per day, and adult men need 2,000-3,000 calories, depending on activity level.";
+    } else if (input.toLowerCase().includes('protein')) {
+      return "Good protein sources include lean meats, fish, eggs, dairy, legumes, and nuts. The recommended daily intake is about 0.8g of protein per kg of body weight.";
+    } else if (input.toLowerCase().includes('vitamin')) {
+      return "Vitamins are essential nutrients. For example, Vitamin C supports immunity (found in citrus fruits), Vitamin D aids calcium absorption (from sunlight and fatty fish), and B vitamins help energy metabolism (found in whole grains and meats).";
+    } else {
+      return "I'm designed to provide general nutrition information. For personalized advice, please consult a registered dietitian. What specific nutrition questions do you have?";
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-        <Navbar/>
+      {/* <Navbar /> */}
+      
       <div className="max-w-4xl mx-auto p-4">
-        {!activeSession ? (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4">Start a New Consultation</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Sample dieticians - in real app, fetch from API */}
-              {[
-                { id: '1', name: 'Dr. Sarah Johnson', rate: 100, specialty: 'Weight Management' },
-                { id: '2', name: 'Dr. Michael Chen', rate: 120, specialty: 'Diabetes Care' },
-                { id: '3', name: 'Dr. Emily Wilson', rate: 150, specialty: 'Pediatric Nutrition' },
-              ].map((dietician) => (
-                <div key={dietician.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <h3 className="font-semibold">{dietician.name}</h3>
-                  <p className="text-sm text-gray-600">{dietician.specialty}</p>
-                  <p className="mt-2 text-indigo-600">${dietician.rate}/min</p>
-                  <button
-                    onClick={() => startNewSession(dietician.id)}
-                    className="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700"
-                  >
-                    Consult Now
-                  </button>
-                </div>
-              ))}
-            </div>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Chat Header */}
+          <div className="bg-indigo-50 p-4 border-b">
+            <h2 className="font-bold text-lg">Nutrition Assistant</h2>
+            <p className="text-sm text-gray-600">Ask me anything about nutrition</p>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {/* Session Header */}
-            <div className="bg-indigo-50 p-4 border-b flex justify-between items-center">
-              <div>
-                <h2 className="font-bold">{activeSession.dieticianName}</h2>
-                <p className="text-sm text-gray-600">
-                  Session in progress - ${activeSession.ratePerMinute}/min
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-medium">Duration: {sessionDuration} min</p>
-                <p className="text-indigo-600 font-semibold">Cost: ${sessionCost}</p>
-              </div>
-            </div>
 
-            {/* Messages */}
-            <div className="h-96 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
-                  No messages yet. Start the conversation!
-                </p>
-              ) : (
-                messages.map((message) => (
+          {/* Messages */}
+          <div className="h-96 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <AnimatePresence key={message.id}>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
-                    key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`max-w-xs md:max-w-md rounded-lg px-4 py-2 ${
+                      message.sender === 'user'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
                   >
-                    <div
-                      className={`max-w-xs md:max-w-md rounded-lg px-4 py-2 ${
-                        message.sender === 'user'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      <p>{message.content}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
+                    <p>{message.content}</p>
+                    <p className="text-xs opacity-70 mt-1">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                ))
-              )}
-            </div>
+                </motion.div>
+              </AnimatePresence>
+            ))}
+            
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-start"
+              >
+                <div className="bg-gray-100 rounded-lg px-4 py-2">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
 
-            {/* Message Input */}
-            <div className="border-t p-4 bg-gray-50">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="Type your message..."
-                  className="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  Send
-                </button>
-              </div>
-              <div className="mt-2 flex justify-between items-center text-sm text-gray-500">
-                <p>Balance: ${userBalance.toFixed(2)}</p>
-                <button
-                  onClick={endSession}
-                  className="text-red-600 hover:text-red-800 font-medium"
-                >
-                  End Session
-                </button>
-              </div>
+          {/* Message Input */}
+          <div className="border-t p-4 bg-gray-50">
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your nutrition question..."
+                className="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Send
+              </button>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Quick Suggestions */}
+        <div className="mt-6 bg-white rounded-lg shadow p-4">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Quick Questions</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              "How many calories do I need?",
+              "What are good protein sources?",
+              "Which vitamins are most important?",
+              "How to eat more fiber?"
+            ].map((question) => (
+              <button
+                key={question}
+                onClick={() => setInputValue(question)}
+                className="text-left text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-100 transition-colors text-gray-700"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
