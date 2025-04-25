@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-// import Navbar from '../components/ui/Navbar';
+import Navbar from '../components/ui/Navbar';
 import Image from 'next/image';
 
 // Animation variants
@@ -85,6 +85,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
+      <Navbar/>
       {/* Animated Background Elements */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -129,12 +130,13 @@ export default function LandingPage() {
                 </button>
                 <button
                   onClick={() => {
+                    router.push('/dietician/signup')
                     const element = document.getElementById('features');
                     element?.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="px-8 py-4 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:border-indigo-300 transition-colors duration-300"
                 >
-                  How It Works
+                  Sign in as Dietician
                 </button>
               </motion.div>
             </motion.div>

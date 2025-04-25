@@ -1,7 +1,31 @@
-module.exports = {
+// next.config.js
+
+const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['images.unsplash.com', 'devsammy.online', 'https://assets.example.com/account123/**', 'randomuser.me'], // Add the API domain here
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'devsammy.online',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.example.com',
+        pathname: '/account123/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'randomuser.me',
+      },
+    ],
   },
   async rewrites() {
     return [
@@ -14,7 +38,6 @@ module.exports = {
   async headers() {
     return [
       {
-        // Apply these headers to all routes
         source: '/:path*',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },
@@ -25,3 +48,5 @@ module.exports = {
     ];
   },
 };
+
+module.exports = nextConfig;

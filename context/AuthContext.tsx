@@ -1,28 +1,30 @@
 // context/AuthContext.tsx
-'use client';
+"use client";
 
-import { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-// In your AuthContext.tsx
 interface BaseUser {
   id: number;
   name: string;
   email: string;
-  image?: string; // Add this line
+  image?: string;
   phone_number?: string;
 }
 
 interface User extends BaseUser {
   dob?: string;
   gender?: string;
-  type: 'user';
+  type: "user";
 }
 
 interface Dietician extends BaseUser {
   bio?: string;
-  type: 'dietician';
+  profile_picture?: string;
+  balance?: string;
+  type: "dietician";
 }
+
 type AuthUser = User | Dietician;
 
 interface AuthContextType {
@@ -36,35 +38,40 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState({
+  const [state, setState] = useState<{
+    isAuthenticated: boolean;
+    user: AuthUser | null;
+    loading: boolean;
+  }>({
     isAuthenticated: false,
-    user: null as AuthUser | null,
-    loading: true
+    user: null,
+    loading: true,
   });
 
   const router = useRouter();
 
   useEffect(() => {
     const initializeAuth = () => {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
       if (token && userData) {
         try {
-          const parsedUser = JSON.parse(userData);
+          const parsedUser: AuthUser = JSON.parse(userData);
           if (parsedUser?.id) {
             setState({
               isAuthenticated: true,
               user: parsedUser,
-              loading: false
+              loading: false,
             });
             return;
           }
         } catch (e) {
-          console.error('Failed to parse user data', e);
+          console.error("Failed to parse user data", e);
         }
       }
-      setState(prev => ({ ...prev, loading: false }));
+
+      setState((prev) => ({ ...prev, loading: false }));
     };
 
     initializeAuth();
@@ -72,52 +79,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (token: string, userData: AuthUser) => {
     if (!userData?.id) {
-      console.error('Invalid user data - missing id');
+      console.error("Invalid user data - missing id");
       return;
     }
 
-    const minimalUserData = {
+    const minimalUserData: AuthUser = {
       id: userData.id,
       name: userData.name,
       email: userData.email,
       phone_number: userData.phone_number,
+      image: userData.image,
       type: userData.type,
-      ...(userData.type === 'user' ? {
-        dob: (userData as User).dob,
-        gender: (userData as User).gender
-      } : {
-        bio: (userData as Dietician).bio
-      })
+      ...(userData.type === "user"
+        ? {
+            dob: (userData as User).dob,
+            gender: (userData as User).gender,
+          }
+        : {
+            bio: (userData as Dietician).bio,
+            profile_picture: (userData as Dietician).profile_picture,
+            balance: (userData as Dietician).balance,
+          }),
     };
 
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(minimalUserData));
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(minimalUserData));
     setState({
       isAuthenticated: true,
       user: minimalUserData,
-      loading: false
+      loading: false,
     });
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("dietician_token");
+    localStorage.removeItem("user");
     setState({
       isAuthenticated: false,
       user: null,
-      loading: false
+      loading: false,
     });
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{
-      isAuthenticated: state.isAuthenticated,
-      user: state.user,
-      login,
-      logout,
-      loading: state.loading
-    }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+        login,
+        logout,
+        loading: state.loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -126,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-} 
+}

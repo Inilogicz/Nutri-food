@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
-import Navbar from '@/components/ui/Navbar';
+// import Navbar from '@/components/ui/Navbar';
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,9 +22,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <Navbar />
+          {/* <Navbar /> */}
           <main className="min-h-[calc(100vh-64px)]">
             {children}
+            <Toaster position="top-center" />
           </main>
         </AuthProvider>
       </body>
