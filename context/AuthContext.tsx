@@ -4,19 +4,31 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-interface User {
+// In your AuthContext.tsx
+interface BaseUser {
   id: number;
   name: string;
   email: string;
+  image?: string; // Add this line
   phone_number?: string;
+}
+
+interface User extends BaseUser {
   dob?: string;
   gender?: string;
+  type: 'user';
 }
+
+interface Dietician extends BaseUser {
+  bio?: string;
+  type: 'dietician';
+}
+type AuthUser = User | Dietician;
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: User | null;
-  login: (token: string, userData: User) => void;
+  user: AuthUser | null;
+  login: (token: string, userData: AuthUser) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -26,7 +38,7 @@ const AuthContext = createContext<AuthContextType>(null!);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState({
     isAuthenticated: false,
-    user: null as User | null,
+    user: null as AuthUser | null,
     loading: true
   });
 
@@ -58,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
   }, []);
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, userData: AuthUser) => {
     if (!userData?.id) {
       console.error('Invalid user data - missing id');
       return;
@@ -69,8 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: userData.name,
       email: userData.email,
       phone_number: userData.phone_number,
-      dob: userData.dob,
-      gender: userData.gender
+      type: userData.type,
+      ...(userData.type === 'user' ? {
+        dob: (userData as User).dob,
+        gender: (userData as User).gender
+      } : {
+        bio: (userData as Dietician).bio
+      })
     };
 
     localStorage.setItem('token', token);
@@ -112,4 +129,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+} 

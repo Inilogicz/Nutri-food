@@ -1,601 +1,546 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { FiCalendar, FiUsers, FiMessageSquare, FiPieChart, FiSettings, FiLogOut, FiBell, FiDollarSign } from 'react-icons/fi';
+import { RiNotionLine as RiNutritionLine } from 'react-icons/ri';
+import { BsGraphUp, BsChatLeftText } from 'react-icons/bs';
 
-// Animation variants
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.6 } }
+// Type definitions
+type Appointment = {
+  id: string;
+  clientName: string;
+  date: string;
+  time: string;
+  status: 'upcoming' | 'completed' | 'cancelled';
 };
 
-const slideUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-};
-
-type Ingredient = {
+type Client = {
+  id: string;
   name: string;
-  quantity: string;
+  email: string;
+  lastSession: string;
 };
 
-type MealSuggestion = {
-  name: string;
-  ingredients: Ingredient[];
-  instructions: string[];
-  calories: number;
-  preparation_time: number;
-  dietary_notes: string;
-  image_url?: string;
+type Message = {
+  id: string;
+  clientName: string;
+  preview: string;
+  time: string;
+  unread: boolean;
 };
 
-export default function Home() {
-  const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'night'>('morning');
-  const [recommendedMeal, setRecommendedMeal] = useState<MealSuggestion | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ai' | 'dietician'>('ai');
-  const [mealTab, setMealTab] = useState<'ingredients' | 'instructions' | 'nutrition'>('ingredients');
-  const [error, setError] = useState<string | null>(null);
-  
+type Consultation = {
+  id: string;
+  clientName: string;
+  date: string;
+  status: string;
+};
+
+type DashboardViewProps = {
+  appointments: Appointment[];
+  clients: Client[];
+  messages: Message[];
+};
+
+type AppointmentsViewProps = {
+  appointments: Appointment[];
+};
+
+type ClientsViewProps = {
+  clients: Client[];
+};
+
+type MessagesViewProps = {
+  messages: Message[];
+  onMarkAsRead: (id: string) => void;
+};
+
+type ConsultationsViewProps = {
+  consultations: Consultation[];
+};
+
+type SettingsViewProps = {
+  user: {
+    name: string;
+    email: string;
+  };
+};
+
+type ComingSoonProps = {
+  feature: string;
+};
+
+type CardProps = {
+  title: string;
+  children: React.ReactNode;
+};
+
+type StatCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  value: number;
+};
+
+export default function DieticianDashboard() {
+  const { user, logout } = useAuth();
   const router = useRouter();
-  const { isAuthenticated, user, loading: authLoading, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleAI = () => {
-    router.push('/AI');
-  };
-  const handleDietician = () => {
-    router.push('/consultation');
-  };
+  // State for API data with proper typing
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
 
-  // Redirect if not authenticated
+  // Fetch data based on active tab
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, authLoading, router]);
-
-  // Determine time of day
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) setTimeOfDay('morning');
-    else if (hour >= 12 && hour < 18) setTimeOfDay('afternoon');
-    else setTimeOfDay('night');
-  }, []);
-
-  // Fetch recommended meal with authentication
-  useEffect(() => {
-    if (authLoading) return; // Wait until auth state is determined
-
-    const fetchMeal = async () => {
+    const fetchData = async () => {
       try {
-        setIsLoading(true);
-        setError(null);
-        
+        setLoading(true);
         const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Authentication required. Please login.');
+        
+        let endpoint = '';
+        switch (activeTab) {
+          case 'appointments':
+            endpoint = '/api/dietitian/appointments';
+            break;
+          case 'clients':
+            endpoint = '/api/dietitian/clients';
+            break;
+          case 'messages':
+            endpoint = '/api/dietitian/messages';
+            break;
+          case 'consultations':
+            endpoint = '/api/dietitian/consultations';
+            break;
+          default:
+            endpoint = '/api/dietitian/dashboard';
         }
 
-        const response = await fetch('/api/proxy/meal-suggestions', {
+        const response = await fetch(endpoint, {
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
-          }
+          }   
         });
-        
-        if (!response.ok) {
-          if (response.status === 401) {
-            logout(); // Clear invalid auth state
-            throw new Error('Session expired. Please login again.');
-          }
-          throw new Error(`Failed to fetch meal: ${response.status} ${response.statusText}`);
-        }
-        
+
+        if (!response.ok) throw new Error('Failed to fetch data');
+
         const data = await response.json();
         
-        // Validate the response structure
-        if (!data?.name || !data?.ingredients || !data?.instructions) {
-          throw new Error('Invalid meal data structure received from API');
+        switch (activeTab) {
+          case 'appointments':
+            setAppointments(data);
+            break;
+          case 'clients':
+            setClients(data);
+            break;
+          case 'messages':
+            setMessages(data);
+            break;
+          case 'consultations':
+            setConsultations(data);
+            break;
+          default:
+            // Set all dashboard data
+            setAppointments(data.appointments || []);
+            setClients(data.clients || []);
+            setMessages(data.messages || []);
         }
-        
-        setRecommendedMeal(data);
       } catch (err) {
-        console.error('Error fetching meal:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load meal recommendation');
-        setRecommendedMeal(null);
+        setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchMeal();
-  }, [authLoading, logout]);
+    fetchData();
+  }, [activeTab]);
 
-  // Get appropriate meal image
-  const getMealImage = (meal: MealSuggestion | null) => {
-    if (meal?.image_url) return meal.image_url;
-    
-    if (meal?.name.toLowerCase().includes('quinoa')) {
-      return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  // Mark message as read
+  const markAsRead = async (messageId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/dietitian/messages/${messageId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to mark as read');
+      
+      setMessages(messages.map(msg => 
+        msg.id === messageId ? {...msg, unread: false} : msg
+      ));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
-    
-    return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
   };
 
-  // Extract dietary tags
-  const getDietaryTags = (notes: string) => {
-    if (!notes) return [];
-    
-    const tags = [];
-    if (notes.toLowerCase().includes('vegan')) tags.push('Vegan');
-    if (notes.toLowerCase().includes('gluten-free')) tags.push('Gluten-Free');
-    if (notes.toLowerCase().includes('high in fiber')) tags.push('High Fiber');
-    if (notes.toLowerCase().includes('weight management')) tags.push('Weight Management');
-    return tags;
-  };
+  // ... rest of your component code remains the same ...
 
-  // Render error state
-  const renderErrorState = () => (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-100"
-    >
-      <div className="flex flex-col items-center">
-        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4">
-          <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
+  // View Components with proper typing
+  function DashboardView({ appointments, clients, messages }: DashboardViewProps) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <StatCard 
+            icon={<FiCalendar className="text-xl" />} 
+            title="Upcoming Appointments" 
+            value={appointments.length} 
+          />
+          <StatCard 
+            icon={<FiUsers className="text-xl" />} 
+            title="Active Clients" 
+            value={clients.length} 
+          />
+          <StatCard 
+            icon={<FiMessageSquare className="text-xl" />} 
+            title="Unread Messages" 
+            value={messages.length} 
+          />
         </div>
-        <h3 className="text-xl font-medium text-gray-900 mb-2">Couldn&apos;t Load Recommendation</h3>
-        <p className="text-gray-600 mb-4 max-w-md">
-          {error || 'We encountered an issue fetching your meal suggestion.'}
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
-          >
-            Try Again
-          </button>
-          <button
-            onClick={() => setError(null)}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm font-medium"
-          >
-            Dismiss
-          </button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card title="Recent Appointments">
+            {appointments.map(app => (
+              <div key={app.id} className="border-b py-3">
+                <p className="font-medium">{app.clientName}</p>
+                <p className="text-sm text-gray-500">{app.date} at {app.time}</p>
+              </div>
+            ))}
+          </Card>
+          
+          <Card title="Recent Clients">
+            {clients.map(client => (
+              <div key={client.id} className="border-b py-3">
+                <p className="font-medium">{client.name}</p>
+                <p className="text-sm text-gray-500">Last session: {client.lastSession}</p>
+              </div>
+            ))}
+          </Card>
         </div>
       </div>
-    </motion.div>
-  );
+    );
+  }
 
-  // Render loading state
-  const renderLoadingState = () => (
-    <motion.div 
-      variants={slideUp}
-      className="bg-white rounded-xl shadow-lg p-8 flex justify-center items-center h-96"
-    >
-      <div className="animate-pulse flex flex-col items-center">
-        <div className="h-12 w-12 bg-indigo-200 rounded-full mb-4 animate-bounce"></div>
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-      </div>
-    </motion.div>
-  );
+  function AppointmentsView({ appointments }: AppointmentsViewProps) {
+    return (
+      <Card title="All Appointments">
+        {appointments.map(app => (
+          <div key={app.id} className="border-b py-4">
+            <div className="flex justify-between">
+              <div>
+                <p className="font-medium">{app.clientName}</p>
+                <p className="text-sm text-gray-500">{app.date} at {app.time}</p>
+              </div>
+              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                View Details
+              </button>
+            </div>
+          </div>
+        ))}
+      </Card>
+    );
+  }
 
-  // Render meal recommendation
-  const renderMealRecommendation = () => (
-    <>
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-      >
-        <div className="md:flex">
-          <div className="md:flex-shrink-0 md:w-1/3 relative overflow-hidden">
-            <Image
-              className="h-64 w-full object-cover md:h-full transition-transform duration-500 hover:scale-105"
-              src={getMealImage(recommendedMeal)}
-              alt={recommendedMeal?.name || 'Recommended meal'}
-              width={400}
-              height={400}
-              priority={true}
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-              <div className="flex items-center gap-4 text-white/90">
-                <span className="flex items-center text-sm">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {recommendedMeal?.preparation_time || 'N/A'} mins
-                </span>
-                <span className="flex items-center text-sm">
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  {recommendedMeal?.calories || 'N/A'} kcal
-                </span>
+  function ClientsView({ clients }: ClientsViewProps) {
+    return (
+      <Card title="All Clients">
+        {clients.map(client => (
+          <div key={client.id} className="border-b py-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium">{client.name}</p>
+                <p className="text-sm text-gray-500">{client.email}</p>
+              </div>
+              <button className="px-3 py-1 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+                Message
+              </button>
+            </div>
+          </div>
+        ))}
+      </Card>
+    );
+  }
+
+  function MessagesView({ messages, onMarkAsRead }: MessagesViewProps) {
+    return (
+      <Card title="Messages">
+        {messages.map(msg => (
+          <div key={msg.id} className={`border-b py-4 ${msg.unread ? 'bg-blue-50' : ''}`}>
+            <div className="flex justify-between">
+              <div>
+                <p className="font-medium">{msg.clientName}</p>
+                <p className="text-sm text-gray-500">{msg.preview}</p>
+              </div>
+              <div className="flex flex-col items-end">
+                <p className="text-xs text-gray-400">{msg.time}</p>
+                {msg.unread && (
+                  <button 
+                    onClick={() => onMarkAsRead(msg.id)}
+                    className="mt-1 text-xs text-indigo-600 hover:text-indigo-800"
+                  >
+                    Mark as read
+                  </button>
+                )}
               </div>
             </div>
           </div>
-          <div className="p-6 md:p-8">
-            {/* Meal Tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="flex -mb-px">
-                <button
-                  onClick={() => setMealTab('ingredients')}
-                  className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'ingredients' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                >
-                  Ingredients
-                </button>
-                <button
-                  onClick={() => setMealTab('instructions')}
-                  className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'instructions' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                >
-                  Instructions
-                </button>
-                <button
-                  onClick={() => setMealTab('nutrition')}
-                  className={`py-3 px-4 text-center border-b-2 font-medium text-sm ${mealTab === 'nutrition' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-                >
-                  Nutrition
-                </button>
-              </nav>
+        ))}
+      </Card>
+    );
+  }
+
+  function ConsultationsView({ consultations }: ConsultationsViewProps) {
+    return (
+      <Card title="Consultations">
+        {consultations.map(consult => (
+          <div key={consult.id} className="border-b py-4">
+            <div className="flex justify-between">
+              <div>
+                <p className="font-medium">{consult.clientName}</p>
+                <p className="text-sm text-gray-500">{consult.date} • {consult.status}</p>
+              </div>
+              <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                {consult.status === 'pending' ? 'Respond' : 'View Details'}
+              </button>
             </div>
+          </div>
+        ))}
+      </Card>
+    );
+  }
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={mealTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {mealTab === 'ingredients' && (
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">{recommendedMeal?.name || 'Recommended Meal'}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {recommendedMeal?.ingredients?.map((ingredient, index) => (
-                        <div key={index} className="flex items-start p-2 bg-gray-50 rounded-lg">
-                          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium mr-3 mt-0.5">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{ingredient.name}</p>
-                            <p className="text-sm text-gray-500">{ingredient.quantity}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+  function SettingsView({ user }: SettingsViewProps) {
+    return (
+      <Card title="Account Settings">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <input 
+              type="text" 
+              defaultValue={user.name} 
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input 
+              type="email" 
+              defaultValue={user.email} 
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            />
+          </div>
+          <button className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+            Save Changes
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
-                {mealTab === 'instructions' && (
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Preparation</h3>
-                    <ol className="space-y-3">
-                      {recommendedMeal?.instructions?.map((step, index) => (
-                        <li key={index} className="flex">
-                          <span className="flex items-center justify-center h-6 w-6 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium mr-3 mt-0.5">
-                            {index + 1}
-                          </span>
-                          <p className="text-gray-700">{step}</p>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
+  function ComingSoon({ feature }: ComingSoonProps) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-xl">
+        <div className="text-5xl mb-4">🚧</div>
+        <h3 className="text-xl font-medium text-gray-700">{feature}</h3>
+        <p className="text-gray-500 mt-2">This feature is coming soon!</p>
+      </div>
+    );
+  }
 
-                {mealTab === 'nutrition' && (
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Nutritional Information</h3>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-indigo-50 p-4 rounded-lg">
-                        <p className="text-sm text-indigo-600 font-medium">Calories</p>
-                        <p className="text-xl font-bold text-gray-900">{recommendedMeal?.calories || 'N/A'} kcal</p>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg">
-                        <p className="text-sm text-purple-600 font-medium">Prep Time</p>
-                        <p className="text-xl font-bold text-gray-900">{recommendedMeal?.preparation_time || 'N/A'} mins</p>
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-bold text-gray-900 mb-2">Dietary Notes</h4>
-                      <p className="text-gray-700">{recommendedMeal?.dietary_notes || 'No dietary notes available.'}</p>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
+  function Card({ title, children }: CardProps) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="font-semibold text-lg">{title}</h2>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  function StatCard({ icon, title, value }: StatCardProps) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
+          </div>
+          <div className="p-3 rounded-lg bg-indigo-50 text-indigo-600">
+            {icon}
           </div>
         </div>
-      </motion.div>
-
-      {/* Dietary Tags */}
-      {recommendedMeal?.dietary_notes && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-6 flex flex-wrap gap-2"
-        >
-          {getDietaryTags(recommendedMeal.dietary_notes).map((tag, index) => (
-            <span 
-              key={index} 
-              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                tag === 'Vegan' ? 'bg-green-100 text-green-800' :
-                tag === 'Gluten-Free' ? 'bg-blue-100 text-blue-800' :
-                tag === 'High Fiber' ? 'bg-purple-100 text-purple-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}
-            >
-              {tag}
-            </span>
-          ))}
-        </motion.div>
-      )}
-    </>
-  );
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-indigo-50">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden -z-10">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.1 }}
-          transition={{ duration: 1 }}
-          className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-200 rounded-full filter blur-3xl"
-        />
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.1 }}
-          transition={{ duration: 1, delay: 0.3 }}
-          className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-200 rounded-full filter blur-3xl"
-        />
-      </div>
-
-      <main className="container mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <motion.section 
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="mb-16 md:mb-24 text-center"
-        >
-          <motion.h1 
-            variants={slideUp}
-            className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4 leading-tight"
-          >
-            Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{user?.name || 'User'}</span>
-          </motion.h1>
-          <motion.p 
-            variants={slideUp}
-            className="text-xl text-gray-600 max-w-2xl mx-auto"
-          >
-            AI-powered meal plans, expert consultations, and smart tracking for your health journey
-          </motion.p>
-        </motion.section>
-
-        {/* Recommended Meal Section */}
-        <motion.section 
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="mb-16 md:mb-24"
-        >
-          <motion.div 
-            variants={slideUp}
-            className="flex justify-between items-center mb-6"
-          >
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Your {timeOfDay} Recommendation
-            </h2>
-            {!isLoading && recommendedMeal && (
-              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
-                {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
-              </span>
-            )}
-          </motion.div>
-
-          {isLoading ? renderLoadingState() : 
-           error ? renderErrorState() : 
-           recommendedMeal ? renderMealRecommendation() : 
-           renderErrorState()}
-        </motion.section>
-
-        {/* Services Section */}
-        <motion.section 
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="mb-16 md:mb-24"
-        >
-          <motion.h2 
-            variants={slideUp}
-            className="text-2xl md:text-3xl font-bold text-gray-900 mb-6"
-          >
-            Get Personalized Advice
-          </motion.h2>
-          
-          <motion.div 
-            variants={slideUp}
-            className="bg-white rounded-xl shadow-lg overflow-hidden"
-          >
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('ai')}
-                className={`flex-1 py-4 px-6 text-center font-medium ${activeTab === 'ai' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  AI Nutrition Assistant
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('dietician')}
-                className={`flex-1 py-4 px-6 text-center font-medium ${activeTab === 'dietician' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  Live Dietician Chat
-                </div>
-              </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="px-6 py-4 flex justify-between items-center">
+          <h1 className="text-xl font-semibold">Dietician Dashboard</h1>
+          <div className="flex items-center space-x-4">
+            <button className="relative p-2 text-gray-600 hover:text-gray-900">
+              <FiBell className="text-xl" />
+              <span className="absolute top-0 right-0 h-3 w-3 bg-red-500 rounded-full"></span>
+            </button>
+            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+              {user?.name?.charAt(0).toUpperCase()}
             </div>
-            
-            {/* Tab Content */}
-            <div className="p-6 md:p-8">
-              {activeTab === 'ai' ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col md:flex-row gap-8"
-                >
-                  <div className="md:w-1/2">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Instant AI Nutrition Advice</h3>
-                    <p className="text-gray-600 mb-6">
-                      Our AI assistant can answer your nutrition questions 24/7, analyze your meals, and provide personalized recommendations based on your health goals.
-                    </p>
-                    <ul className="space-y-3 mb-6">
-                      {[
-                        "Get instant meal analysis",
-                        "Personalized supplement advice",
-                        "Allergy-aware substitutions",
-                        "Macro tracking assistance"
-                      ].map((feature, index) => (
-                        <li key={index} className="flex items-start">
-                          <svg className="h-5 w-5 text-indigo-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="text-gray-700">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button 
-                      onClick={handleAI}
-                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium shadow-md"
-                    >
-                      Chat with AI Assistant
-                    </button>
-                  </div>
-                  <div className="md:w-1/2 bg-gray-50 rounded-lg p-6 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto h-40 w-40 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
-                        <svg className="h-20 w-20 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                      </div>
-                      <p className="text-gray-500">Always available, always learning</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col md:flex-row gap-8"
-                >
-                  <div className="md:w-1/2">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">Connect with Certified Dieticians</h3>
-                    <p className="text-gray-600 mb-6">
-                      Schedule live consultations with our network of certified nutrition experts for personalized advice tailored to your specific needs and health conditions.
-                    </p>
-                    <ul className="space-y-3 mb-6">
-                      {[
-                        "One-on-one video consultations",
-                        "Personalized meal planning",
-                        "Health condition management",
-                        "Ongoing progress tracking"
-                      ].map((feature, index) => (
-                        <li key={index} className="flex items-start">
-                          <svg className="h-5 w-5 text-indigo-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="text-gray-700">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button 
-                      onClick={handleDietician}
-                      className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium shadow-md"
-                    >
-                      Browse Dieticians
-                    </button>
-                  </div>
-                  <div className="md:w-1/2 bg-gray-50 rounded-lg p-6 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto h-40 w-40 bg-indigo-100 rounded-full flex items-center justify-center mb-4 overflow-hidden">
-                        <Image 
-                          src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" 
-                          alt="Dietician"
-                          width={160}
-                          height={160}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <p className="text-gray-500">Real experts, real results</p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
-        </motion.section>
-
-        {/* Final CTA Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-xl p-8 md:p-12 text-center"
-        >
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            Start Your Health Journey Today
-          </h2>
-          <p className="text-indigo-100 max-w-2xl mx-auto mb-6">
-            Join thousands who have transformed their nutrition with our AI and expert guidance.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleAI}
-              className="px-8 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-gray-100 transition-all shadow-lg"
-            >
-              Try AI Assistant
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleDietician}
-              className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-lg hover:bg-white/10 transition-all"
-            >
-              Book Dietician
-            </motion.button>
           </div>
-        </motion.section>
-      </main>
+        </div>
+      </header>
+
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-white shadow-sm h-screen p-4">
+          <nav className="space-y-1">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'dashboard' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiPieChart className="text-lg" />
+              <span>Dashboard</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'appointments' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiCalendar className="text-lg" />
+              <span>Appointments</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('clients')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'clients' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiUsers className="text-lg" />
+              <span>Clients</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('messages')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'messages' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiMessageSquare className="text-lg" />
+              <span>Messages</span>
+              {messages.filter(m => m.unread).length > 0 && (
+                <span className="ml-auto bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">
+                  {messages.filter(m => m.unread).length}
+                </span>
+              )}
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('consultations')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'consultations' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <BsChatLeftText className="text-lg" />
+              <span>Consultations</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('nutrition-plans')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'nutrition-plans' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <RiNutritionLine className="text-lg" />
+              <span>Nutrition Plans</span>
+              <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Soon</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('earnings')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'earnings' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiDollarSign className="text-lg" />
+              <span>Earnings</span>
+              <span className="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Soon</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === 'settings' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-100'}`}
+            >
+              <FiSettings className="text-lg" />
+              <span>Settings</span>
+            </button>
+          </nav>
+          
+          <button
+            onClick={handleLogout}
+            className="w-full mt-4 flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100"
+          >
+            <FiLogOut className="text-lg" />
+            <span>Logout</span>
+          </button>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+              {error}
+            </div>
+          ) : (
+            <>
+              {activeTab === 'dashboard' && (
+                <DashboardView 
+                  appointments={appointments.slice(0, 3)} 
+                  clients={clients.slice(0, 3)} 
+                  messages={messages.filter(m => m.unread).slice(0, 3)} 
+                />
+              )}
+              
+              {activeTab === 'appointments' && (
+                <AppointmentsView appointments={appointments} />
+              )}
+              
+              {activeTab === 'clients' && (
+                <ClientsView clients={clients} />
+              )}
+              
+              {activeTab === 'messages' && (
+                <MessagesView messages={messages} onMarkAsRead={markAsRead} />
+              )}
+              
+              {activeTab === 'consultations' && (
+                <ConsultationsView consultations={consultations} />
+              )}
+              
+              {activeTab === 'nutrition-plans' && (
+                <ComingSoon feature="Nutrition Plans Management" />
+              )}
+              
+              {activeTab === 'earnings' && (
+                <ComingSoon feature="Earnings Reports" />
+              )}
+              
+              {activeTab === 'settings' && (
+                <SettingsView user={user} />
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

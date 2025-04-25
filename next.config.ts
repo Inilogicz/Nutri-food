@@ -1,7 +1,7 @@
 module.exports = {
   reactStrictMode: true,
   images: {
-    domains: ['images.unsplash.com', 'devsammy.online'], // Add the API domain here
+    domains: ['images.unsplash.com', 'devsammy.online', 'https://assets.example.com/account123/**', 'randomuser.me'], // Add the API domain here
   },
   async rewrites() {
     return [

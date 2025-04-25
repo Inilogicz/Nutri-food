@@ -9,8 +9,7 @@ export default function Signup() {
         name: '',
         email: '',
         phone: '',
-        dob: '',
-        gender: '',
+        bio: '',
         password: '',
         confirmPassword: ''
     });
@@ -52,8 +51,8 @@ export default function Signup() {
                 email: formData.email,
                 password: formData.password,
                 phone_number: formData.phone,
-                dob: formData.dob,
-                gender: formData.gender.toLowerCase()
+                bio: formData.bio,
+
             };
 
             const response = await fetch('https://devsammy.online/api/dietitian/register', {
@@ -133,32 +132,17 @@ export default function Signup() {
                     </div>
                     
                     <div className="space-y-2">
-                        <label htmlFor="dob" className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                        <label htmlFor="bio" className="block text-sm font-medium text-gray-700">Bio</label>
                         <input 
-                            type="date" 
-                            id="dob"
-                            name="dob" 
-                            value={formData.dob} 
+                            type="text" 
+                            id="bio"
+                            name="bio" 
+                            placeholder='Enter Bio'
+                            value={formData.bio} 
                             onChange={handleChange} 
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" 
                             required 
                         />
-                    </div>
-                    
-                    <div className="space-y-2">
-                        <label htmlFor="gender" className="block text-sm font-medium text-gray-700">Gender</label>
-                        <select 
-                            id="gender"
-                            name="gender" 
-                            value={formData.gender} 
-                            onChange={handleChange} 
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all appearance-none" 
-                            required
-                        >
-                            <option value="">Select Gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                        </select>
                     </div>
                     
                     <div className="space-y-2">

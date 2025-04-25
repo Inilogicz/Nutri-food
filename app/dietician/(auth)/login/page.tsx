@@ -24,48 +24,49 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setModal(prev => ({ ...prev, isOpen: false }));
-
+  
     try {
       const response = await fetch('https://devsammy.online/api/dietitian/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
+  
       const data = await response.json();
-
+  
       if (!response.ok || !data.status) {
         throw new Error(data.message || 'Login failed');
       }
-
-      // Validate response structure
-      if (!data.data?.user?.id || !data.data?.token) {
+  
+      // Validate response structure - note the corrected property name 'dietitian'
+      if (!data.data?.dietitian?.id || !data.data?.token) {
         throw new Error('Invalid response format from server');
       }
-
-      // Extract user data from response
-      const { user, token } = data.data;
-
+  
+      // Extract dietitian data from response
+      const { dietitian, token } = data.data;
+  
       login(token, {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone_number: user.phone_number,
-        dob: user.dob,
-        gender: user.gender
+        id: dietitian.id,
+        name: dietitian.name,
+        email: dietitian.email,
+        type: 'dietician',
+        bio: dietitian.bio
+        // Removed phone_number since it's not in the response
+        // Add other fields as needed from the response
       });
-
+  
       setModal({
         isOpen: true,
         type: 'success',
         message: 'Login successful! Redirecting...',
         duration: 2000
       });
-
+  
       setTimeout(() => {
-        router.push('/Homepage');
+        router.push('/dietician/home');
       }, 2000);
-
+  
     } catch (err) {
       setModal({
         isOpen: true,
