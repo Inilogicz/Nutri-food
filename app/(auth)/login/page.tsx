@@ -8,6 +8,16 @@ import AlertModal from '@/components/ui/modal';
 import Link from 'next/link';
 
 export default function Login() {
+  interface AuthUser {
+    id: string;
+    name: string;
+    email: string;
+    phone_number: string;
+    dob: string;
+    gender: string;
+    type: string; // this is the missing field
+  }
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,7 +53,6 @@ export default function Login() {
         throw new Error('Invalid response format from server');
       }
 
-      // Extract user data from response
       const { user, token } = data.data;
 
       login(token, {
@@ -52,7 +61,8 @@ export default function Login() {
         email: user.email,
         phone_number: user.phone_number,
         dob: user.dob,
-        gender: user.gender
+        gender: user.gender,
+        type: user.type || 'default', 
       });
 
       setModal({

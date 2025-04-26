@@ -16,7 +16,8 @@ import {
   FormLabel, 
   FormMessage 
 } from "@/components/ui/form";
-import { toast } from "sonner";
+import { toast, Toaster } from 'sonner';
+import type { ToastT } from 'sonner';
 import { CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { useAuth } from "@/context/AuthContext"; // adjust path as needed
 
@@ -49,9 +50,9 @@ export default function LoginForm() {
       error: <AlertCircle className="w-5 h-5 text-rose-500" />,
       info: <Info className="w-5 h-5 text-blue-500" />
     };
-
-    toast.custom((t) => (
-      <div className={`p-4 rounded-lg shadow-lg border bg-background ${t.visible ? 'animate-in fade-in' : 'animate-out fade-out'}`}>
+  
+    toast.custom((id) => (
+      <div className={`p-4 rounded-lg shadow-lg border bg-background`}>
         <div className="flex items-start gap-3">
           <div className="mt-0.5">
             {icons[type]}

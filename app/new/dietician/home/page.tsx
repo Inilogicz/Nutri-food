@@ -534,9 +534,6 @@ export default function DieticianDashboard() {
                 <ComingSoon feature="Earnings Reports" />
               )}
               
-              {activeTab === 'settings' && (
-                <SettingsView user={user} />
-              )}
             </>
           )}
         </main>

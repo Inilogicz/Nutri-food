@@ -34,7 +34,7 @@ interface Client {
   avatar: string;
 }
 
-interface Consultation {
+export interface Consultation {
   id: string;
   client: Client;
   date: string;
@@ -51,6 +51,7 @@ interface ConsultationListProps {
 export default function ConsultationList({ consultations }: ConsultationListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  
 
   // Filter consultations based on search term and status
   const filteredConsultations = consultations.filter((consultation) => {

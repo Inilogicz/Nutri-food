@@ -6,18 +6,38 @@ import UpcomingConsultations from "@/components/dietician/dashboard/UpcomingCons
 import RecentMessages from "@/components/dietician/dashboard/RecentMessages";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    if (!authLoading && !isAuthenticated) {
+      router.push("/dietician/login");
+    }
+  }, [isAuthenticated, authLoading, router]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => {
+    // Simulate loading data only if authenticated
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="flex h-[calc(100vh-5rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

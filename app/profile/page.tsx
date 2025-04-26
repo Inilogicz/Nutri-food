@@ -85,8 +85,8 @@ export default function ProfilePage() {
           }
         });
         
-        let height = null;
-        let weight = null;
+        let height: number | null = null;
+        let weight: number | null = null;
         
         if (hwRes.ok) {
           const hwData = await hwRes.json();

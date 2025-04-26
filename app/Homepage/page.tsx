@@ -4,6 +4,8 @@
   import { useRouter } from 'next/navigation';
   import { motion, AnimatePresence } from 'framer-motion';
   import NextImage from 'next/image';
+  import Image from 'next/image';
+
   import { useAuth } from '@/context/AuthContext';
   
   // Animation variants
@@ -129,17 +131,7 @@
       return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
     };
   
-    // Extract dietary tags
-    const getDietaryTags = (notes: string) => {
-      if (!notes) return [];
-      
-      const tags = [];
-      if (notes.toLowerCase().includes('vegan')) tags.push('Vegan');
-      if (notes.toLowerCase().includes('gluten-free')) tags.push('Gluten-Free');
-      if (notes.toLowerCase().includes('high in fiber')) tags.push('High Fiber');
-      if (notes.toLowerCase().includes('weight management')) tags.push('Weight Management');
-      return tags;
-    };
+
   
     // Render error state
     const renderErrorState = () => (
@@ -327,19 +319,6 @@
             transition={{ delay: 0.3 }}
             className="mt-6 flex flex-wrap gap-2"
           >
-            {getDietaryTags(recommendedMeal.dietary_notes).map((tag, index) => (
-              <span 
-                key={index} 
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  tag === 'Vegan' ? 'bg-green-100 text-green-800' :
-                  tag === 'Gluten-Free' ? 'bg-blue-100 text-blue-800' :
-                  tag === 'High Fiber' ? 'bg-purple-100 text-purple-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}
-              >
-                {tag}
-              </span>
-            ))}
           </motion.div>
         )}
       </>

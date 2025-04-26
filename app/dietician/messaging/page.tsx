@@ -6,25 +6,58 @@ import MessageList from "@/components/dietician/messaging/MessageList";
 import MessageThread from "@/components/dietician/messaging/MessageThread";
 import { mockConversations } from "@/lib/mock-data";
 
+// Define the types directly in this file
+interface Message {
+  id: string;
+  sender: string;
+  content: string;
+  timestamp: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  avatar: string;
+  goal: string;
+}
+
+interface Conversation {
+  id: string;
+  client: Client;
+  unread: boolean;
+  messages: Message[];
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount?: number;
+}
+
 export default function MessagingPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [conversations, setConversations] = useState([]);
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
 
   useEffect(() => {
-    // Simulate fetching messages
-    const timer = setTimeout(() => {
-      setConversations(mockConversations);
-      if (mockConversations.length > 0) {
-        setSelectedConversation(mockConversations[0]);
-      }
-      setIsLoading(false);
-    }, 1000);
-
     const handleResize = () => {
       setIsMobileView(window.innerWidth < 768);
     };
+
+    // Simulate fetching messages
+    const timer = setTimeout(() => {
+      // Ensure mock data matches Conversation type
+      const formattedConversations: Conversation[] = mockConversations.map(conv => ({
+        ...conv,
+        lastMessage: conv.messages[conv.messages.length - 1]?.content || '',
+        lastMessageTime: conv.messages[conv.messages.length - 1]?.timestamp || '',
+        unreadCount: conv.unread ? 1 : 0
+      }));
+      
+      setConversations(formattedConversations);
+      if (formattedConversations.length > 0) {
+        setSelectedConversation(formattedConversations[0]);
+      }
+      setIsLoading(false);
+    }, 1000);
 
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -50,7 +83,7 @@ export default function MessagingPage() {
           <div className={`h-full ${selectedConversation && isMobileView ? 'hidden' : 'w-full md:w-1/3 border-r'}`}>
             <MessageList 
               conversations={conversations}
-              selectedId={selectedConversation?.id}
+              selectedId={selectedConversation?.id || null} // Ensure null instead of undefined
               onSelect={(conversation) => setSelectedConversation(conversation)}
             />
           </div>

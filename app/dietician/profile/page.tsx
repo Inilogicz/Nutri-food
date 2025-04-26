@@ -60,56 +60,65 @@ export default function ProfilePage() {
       };
     
       setProfile(transformedData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching profile:", error);
-      toast.error("Failed to load profile data");
+      if (error instanceof Error) {
+        toast.error(error.message || "Failed to load profile data");
+      } else {
+        toast.error("Failed to load profile data");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleProfileUpdate = async (updatedData: any) => {
-    const token = localStorage.getItem("dietician_token");
-    if (!token) {
-      window.location.href = "/dietician/login";
-      return false;
+  // Update the error handling in your handleProfileUpdate function
+const handleProfileUpdate = async (updatedData: any) => {
+  const token = localStorage.getItem("dietician_token");
+  if (!token) {
+    window.location.href = "/dietician/login";
+    return false;
+  }
+
+  try {
+    const formData = new FormData();
+    
+    formData.append("name", updatedData.name.trim());
+    formData.append("bio", updatedData.bio);
+    formData.append("specialty", updatedData.specialty);
+    formData.append("rate_per_minute", updatedData.rate_per_minute.toString());
+
+    if (updatedData.avatar && typeof updatedData.avatar !== "string") {
+      formData.append("profile_picture", updatedData.avatar);
     }
-  
-    try {
-      const formData = new FormData();
-      
-      formData.append("name", updatedData.name.trim());
-      formData.append("bio", updatedData.bio);
-      formData.append("specialty", updatedData.specialty);
-      formData.append("rate_per_minute", updatedData.rate_per_minute.toString());
 
-      if (updatedData.avatar && typeof updatedData.avatar !== "string") {
-        formData.append("profile_picture", updatedData.avatar);
-      }
+    const response = await fetch("/api/proxy/dietitian/profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-      const response = await fetch("/api/proxy/dietitian/profile", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || "Update failed");
+    }
 
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || "Update failed");
-      }
-
-      toast.success("Profile updated successfully");
-      await fetchProfile();
-      return true;
-    } catch (error) {
-      console.error("Update error:", error);
+    toast.success("Profile updated successfully");
+    await fetchProfile();
+    return true;
+  } catch (error: unknown) {
+    console.error("Update error:", error);
+    if (error instanceof Error) {
       toast.error(error.message || "Update failed");
-      return false;
+    } else {
+      toast.error("An unknown error occurred");
     }
-  };
+    return false;
+  }
+};
   
   useEffect(() => {
     fetchProfile();

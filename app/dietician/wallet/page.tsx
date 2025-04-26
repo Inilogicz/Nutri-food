@@ -8,15 +8,27 @@ import TransactionList from "@/components/dietician/wallet/TransactionList";
 import WalletChart from "@/components/dietician/wallet/WalletChart";
 import { mockTransactions } from "@/lib/mock-data";
 
+// Single interface definition at the top level
+interface Transaction {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  type: 'credit' | 'debit'; // More specific type for better type safety
+  status: string;
+}
+
 export default function WalletPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
 
   useEffect(() => {
     // Simulate loading wallet data
     const timer = setTimeout(() => {
-      setTransactions(mockTransactions);
+      // Type assertion if needed (only if mock data structure differs)
+      setTransactions(mockTransactions as Transaction[]);
+      
       // Calculate total balance from transactions
       const balance = mockTransactions.reduce((sum, transaction) => {
         return sum + (transaction.type === 'credit' ? transaction.amount : -transaction.amount);
@@ -62,10 +74,14 @@ export default function WalletPage() {
               <TransactionList transactions={transactions} />
             </TabsContent>
             <TabsContent value="credits">
-              <TransactionList transactions={transactions.filter(t => t.type === 'credit')} />
+              <TransactionList 
+                transactions={transactions.filter(t => t.type === 'credit')} 
+              />
             </TabsContent>
             <TabsContent value="debits">
-              <TransactionList transactions={transactions.filter(t => t.type === 'debit')} />
+              <TransactionList 
+                transactions={transactions.filter(t => t.type === 'debit')} 
+              />
             </TabsContent>
           </Tabs>
         </div>
