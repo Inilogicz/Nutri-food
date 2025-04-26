@@ -23,10 +23,10 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     const token = localStorage.getItem("dietician_token");
-    if (!token) {
-      window.location.href = "/dietician/login";
-      return;
-    }
+    // if (!token) {
+    //   window.location.href = "/dietician/login";
+    //   return;
+    // }
 
     try {
       const response = await fetch("/api/proxy/dietitian/profile", {
