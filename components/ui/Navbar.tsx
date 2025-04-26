@@ -17,8 +17,8 @@ export default function Navbar() {
       href: isAuthenticated ? '/Homepage' : '/', // ✅ Dynamic Home link
     },
     { name: 'Features', href: '/features' },
-    { name: 'Pricing', href: '/pricing' },
-    { name: 'About', href: '/about' },
+    { name: 'AI chat', href: '/AI' },
+    { name: 'Wallet', href: '/wallet' },
     ...(isAuthenticated ? [{ name: 'Profile', href: '/profile' }] : []),
   ];
 

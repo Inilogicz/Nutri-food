@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/app/new/dietician/ui/card";
 import { Button } from "@/app/new/dietician/ui/button";
 import { ArrowUpRight, ArrowDownLeft, Wallet, CreditCard } from "lucide-react";
+import Link from "next/link";
 
 interface WalletSummaryProps {
   balance: number;
@@ -24,8 +25,7 @@ export default function WalletSummary({ balance }: WalletSummaryProps) {
           <div className="mt-6">
             <p className="mb-2 text-xs text-purple-100">Nutrifood Wallet</p>
             <div className="flex justify-between">
-              <p className="text-xs text-purple-100">****-****-****-3456</p>
-              <CreditCard className="h-4 w-4 text-purple-100" />
+          
             </div>
           </div>
         </CardContent>
@@ -43,25 +43,11 @@ export default function WalletSummary({ balance }: WalletSummaryProps) {
                 <ArrowDownLeft className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
             </div>
-            <Button className="mt-4 w-full bg-purple-600 hover:bg-purple-700">
-              Add Money
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Transfer to Bank</p>
-                <h3 className="mt-1 text-2xl font-semibold">Withdraw</h3>
-              </div>
-              <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
-                <ArrowUpRight className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-            <Button className="mt-4 w-full" variant="outline">
-              Withdraw Funds
-            </Button>
+            <Link href="https://sandbox.flutterwave.com/pay/uk16b2tjoyuk">
+              <Button className="mt-4 w-full bg-purple-600 hover:bg-purple-700">
+                Add Money
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

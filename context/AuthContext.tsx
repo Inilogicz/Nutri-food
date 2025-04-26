@@ -30,6 +30,7 @@ type AuthUser = User | Dietician;
 interface AuthContextType {
   isAuthenticated: boolean;
   user: AuthUser | null;
+  token: string | null;
   login: (token: string, userData: AuthUser) => void;
   logout: () => void;
   loading: boolean;
@@ -41,10 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<{
     isAuthenticated: boolean;
     user: AuthUser | null;
+    token: string | null;
     loading: boolean;
   }>({
     isAuthenticated: false,
     user: null,
+    token: null,
     loading: true,
   });
 
@@ -62,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setState({
               isAuthenticated: true,
               user: parsedUser,
+              token,
               loading: false,
             });
             return;
@@ -107,17 +111,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({
       isAuthenticated: true,
       user: minimalUserData,
+      token,
       loading: false,
     });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("dietician_token");
     localStorage.removeItem("user");
     setState({
       isAuthenticated: false,
       user: null,
+      token: null,
       loading: false,
     });
     router.push("/login");
@@ -128,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isAuthenticated: state.isAuthenticated,
         user: state.user,
+        token: state.token,
         login,
         logout,
         loading: state.loading,

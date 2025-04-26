@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import Navbar from '@/components/ui/Navbar';
 
 type Ingredient = {
   name: string;
@@ -157,6 +158,7 @@ export default function AIChatPage() {
   const formatMealSuggestion = (meal: MealSuggestion) => {
     return (
       <div className="space-y-3">
+        <Navbar/>
         <h3 className="font-bold text-lg">{meal.name}</h3>
         
         <div className="bg-indigo-50 p-3 rounded-lg">
