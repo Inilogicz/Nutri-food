@@ -158,7 +158,7 @@ export default function AIChatPage() {
   const formatMealSuggestion = (meal: MealSuggestion) => {
     return (
       <div className="space-y-3">
-        <Navbar/>
+        
         <h3 className="font-bold text-lg">{meal.name}</h3>
         
         <div className="bg-indigo-50 p-3 rounded-lg">
@@ -217,6 +217,7 @@ export default function AIChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      <Navbar/>
       {/* Chat Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (

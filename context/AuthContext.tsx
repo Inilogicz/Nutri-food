@@ -1,8 +1,7 @@
-// context/AuthContext.tsx
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface BaseUser {
   id: number;
@@ -34,6 +33,7 @@ interface AuthContextType {
   login: (token: string, userData: AuthUser) => void;
   logout: () => void;
   loading: boolean;
+  userType: "user" | "dietician" | null;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -44,19 +44,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: AuthUser | null;
     token: string | null;
     loading: boolean;
+    userType: "user" | "dietician" | null;
   }>({
     isAuthenticated: false,
     user: null,
     token: null,
     loading: true,
+    userType: null,
   });
 
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const initializeAuth = () => {
       const token = localStorage.getItem("token");
       const userData = localStorage.getItem("user");
+
+      console.log('Initializing auth:', { token, userData });
 
       if (token && userData) {
         try {
@@ -67,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               user: parsedUser,
               token,
               loading: false,
+              userType: parsedUser.type,
             });
             return;
           }
@@ -81,11 +87,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
   }, []);
 
+  // Route protection
+  useEffect(() => {
+    if (state.loading) return;
+
+    // Define auth pages for both users and dieticians
+    const isAuthPage =
+      pathname === '/login' ||
+      pathname === '/signup' ||
+      pathname === '/dietician/login' ||
+      pathname === '/dietician/signup';
+
+    // Define public pages accessible without authentication
+    const isPublicPage =
+      pathname === '/' ||
+      pathname === '/login' ||
+      pathname === '/signup' ||
+      pathname === '/dietician/login' ||
+      pathname === '/dietician/signup';
+
+    // Debugging to track routing decisions
+    console.log({
+      pathname,
+      isAuthenticated: state.isAuthenticated,
+      isAuthPage,
+      isPublicPage,
+      userType: state.userType,
+    });
+
+    // Redirect unauthenticated users trying to access protected routes
+    if (!state.isAuthenticated && !isAuthPage && !isPublicPage) {
+      console.log('Redirecting to /login: Unauthenticated access to protected route');
+      router.push('/');
+      return;
+    }
+
+    // Handle authenticated users
+    if (state.isAuthenticated) {
+      const isDieticianRoute =
+        pathname?.startsWith('/dietician') &&
+        !pathname.startsWith('/dietician/login') &&
+        !pathname.startsWith('/dietician/signup');
+      const isUserRoute = pathname === '/Homepage'; // Adjust based on actual user routes
+
+      // Redirect dieticians away from user routes
+      if (state.userType === 'dietician' && isUserRoute) {
+        console.log('Redirecting dietician to /dietician/dashboard');
+        router.push('/dietician/dashboard');
+      }
+      // Redirect users away from dietician routes
+      else if (state.userType === 'user' && isDieticianRoute) {
+        console.log('Redirecting user to /Homepage');
+        router.push('/Homepage');
+      }
+
+      // Redirect authenticated users away from auth pages
+      if (isAuthPage) {
+        console.log('Redirecting authenticated user away from auth page');
+        router.push(state.userType === 'dietician' ? '/dietician/dashboard' : '/Homepage');
+      }
+
+      // Redirect authenticated users from root to their respective dashboard
+      if (pathname === '/') {
+        console.log('Redirecting authenticated user from root');
+        router.push(state.userType === 'dietician' ? '/dietician/dashboard' : '/Homepage');
+      }
+    }
+  }, [state.isAuthenticated, state.loading, state.userType, pathname, router]);
+
   const login = (token: string, userData: AuthUser) => {
     if (!userData?.id) {
       console.error("Invalid user data - missing id");
       return;
     }
+
+    // Clear any existing session
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
     const minimalUserData: AuthUser = {
       id: userData.id,
@@ -113,10 +191,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: minimalUserData,
       token,
       loading: false,
+      userType: userData.type,
     });
+
+    // Redirect based on user type
+    router.push(userData.type === 'dietician' ? '/dietician/dashboard' : '/Homepage');
   };
 
   const logout = () => {
+    console.log('Logging out: Clearing localStorage and resetting state');
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setState({
@@ -124,8 +207,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: null,
       token: null,
       loading: false,
+      userType: null,
     });
-    router.push("/login");
+    router.push("/");
   };
 
   return (
@@ -137,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         loading: state.loading,
+        userType: state.userType,
       }}
     >
       {children}

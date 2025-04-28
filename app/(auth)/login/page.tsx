@@ -36,7 +36,7 @@ export default function Login() {
     setModal(prev => ({ ...prev, isOpen: false }));
 
     try {
-      const response = await fetch('https://devsammy.online/api/user/login', {
+      const response = await fetch('/api/proxy/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -92,6 +92,13 @@ export default function Login() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-gray-100">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
         <div className="text-center mb-8">
+          <Link href="/" className="flex items-center justify-center mb-4">
+            <img
+              src="/images/dietlogo.png"
+              alt="Diet-Talk Logo"
+              className="h-16 w-16 rounded-full object-cover mb-4"
+            />  
+          </Link>
           <h2 className="text-3xl font-bold text-gray-800">Sign in to your account</h2>
           <p className="text-gray-500 mt-2">Welcome back!</p>
         </div>
@@ -123,7 +130,7 @@ export default function Login() {
           
           <button 
             type="submit" 
-            className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center shadow-md hover:shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed" 
+            className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center shadow-md hover:shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed" 
             disabled={loading}
           >
             {loading ? (
@@ -139,7 +146,7 @@ export default function Login() {
         </form>
         
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p><div>Don&apos;t have an account?</div> <Link href="/signup" className="text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Sign up</Link></p>
+          <p><div>Don&apos;t have an account?</div> <Link href="/signup" className="text-purple-600 hover:text-indigo-800 font-medium transition-colors">Sign up</Link></p>
         </div>
       </div>
 

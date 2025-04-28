@@ -1,37 +1,48 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-// import { useRouter } from 'next/navigation';
-// import Navbar from '../../components/ui/Navbar';
+import Navbar from '../../components/ui/Navbar';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 
+interface HealthCondition {
+  id: number;
+  name: string;
+  status: string;
+  notes: string;
+}
+
+interface SurgicalHistory {
+  id: number;
+  type: string;
+  health_condition: string;
+  surgery_date: string;
+  notes: string;
+}
+
+interface FoodAllergy {
+  id: number;
+  name: string;
+}
+
 interface ProfileData {
+  name: string;
+  email: string;
+  country: string;
   age: number;
   height: number | null;
   weight: number | null;
-  health_conditions: {
-    id: number;
-    name: string;
-    status: string;
-    notes: string;
-  }[];
-  surgical_histories: {
-    id: number;
-    type: string;
-    health_condition: string;
-    surgery_date: string;
-    notes: string;
-  }[];
-  food_allergies: {
-    id: number;
-    name: string;
-  }[];
+  health_conditions: HealthCondition[];
+  surgical_histories: SurgicalHistory[];
+  food_allergies: FoodAllergy[];
 }
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileData>({
+    name: '',
+    email: '',
+    country: '',
     age: 0,
     height: null,
     weight: null,
@@ -56,7 +67,6 @@ export default function ProfilePage() {
   const [editingConditionId, setEditingConditionId] = useState<number | null>(null);
   const [editingSurgeryId, setEditingSurgeryId] = useState<number | null>(null);
   const [editingAllergyId, setEditingAllergyId] = useState<number | null>(null);
-  // const router = useRouter();
 
   // Fetch profile data
   useEffect(() => {
@@ -64,8 +74,7 @@ export default function ProfilePage() {
       try {
         setLoading(true);
         
-        // Fetch basic profile info
-        const profileRes = await fetch('/api/proxy/profile', {
+        const response = await fetch('/api/proxy/profile', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -73,31 +82,20 @@ export default function ProfilePage() {
           }
         });
         
-        if (!profileRes.ok) throw new Error('Failed to fetch profile');
-        const profileData = await profileRes.json();
+        if (!response.ok) throw new Error('Failed to fetch profile');
         
-        // Fetch height and weight
-        const hwRes = await fetch('/api/proxy/profile/height-weight', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        let height: number | null = null;
-        let weight: number | null = null;
-        
-        if (hwRes.ok) {
-          const hwData = await hwRes.json();
-          height = hwData.height ? Number(hwData.height) : null;
-          weight = hwData.weight ? Number(hwData.weight) : null;
-        }
+        const data = await response.json();
         
         setProfile({
-          ...profileData.data,
-          height,
-          weight
+          name: data.data?.name || user?.name || '',
+          email: data.data?.email || user?.email || '',
+          country: data.data?.country || '',
+          age: typeof data.data?.age === 'number' ? data.data.age : 0,
+          height: data.data?.height ? Number(data.data.height) : null,
+          weight: data.data?.weight ? Number(data.data.weight) : null,
+          health_conditions: data.data?.health_conditions || [],
+          surgical_histories: data.data?.surgical_histories || [],
+          food_allergies: data.data?.food_allergies || [],
         });
         
       } catch (error) {
@@ -108,16 +106,15 @@ export default function ProfilePage() {
     };
     
     fetchProfile();
-  }, []);
+  }, [user]);
 
-  // Save profile data
+  // Save profile data (height and weight)
   const saveProfile = async () => {
     try {
       setLoading(true);
       
-      // Update height and weight
-      const hwResponse = await fetch('/api/proxy/profile/height-weight', {
-        method: 'PUT', // Changed from POST to PUT
+      const response = await fetch('/api/proxy/profile/height-weight', {
+        method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -128,7 +125,7 @@ export default function ProfilePage() {
         }),
       });
       
-      if (!hwResponse.ok) throw new Error('Failed to save height and weight');
+      if (!response.ok) throw new Error('Failed to save height and weight');
       
       toast.success('Profile updated successfully');
       setIsEditing(false);
@@ -226,7 +223,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleEditCondition = (condition: ProfileData['health_conditions'][0]) => {
+  const handleEditCondition = (condition: HealthCondition) => {
     setNewCondition({
       name: condition.name,
       status: condition.status,
@@ -327,7 +324,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleEditSurgery = (surgery: ProfileData['surgical_histories'][0]) => {
+  const handleEditSurgery = (surgery: SurgicalHistory) => {
     setNewSurgery({
       type: surgery.type,
       health_condition: surgery.health_condition,
@@ -424,7 +421,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleEditAllergy = (allergy: ProfileData['food_allergies'][0]) => {
+  const handleEditAllergy = (allergy: FoodAllergy) => {
     setNewAllergy(allergy.name);
     setEditingAllergyId(allergy.id);
   };
@@ -439,7 +436,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
-      {/* <Navbar /> */}
+      <Navbar />
       
       {/* Header */}
       <div className="bg-white shadow-sm">
@@ -497,17 +494,33 @@ export default function ProfilePage() {
             <div className="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
               <div className="sm:col-span-3">
                 <label className="block text-sm font-medium text-gray-700">Full name</label>
-                <p className="mt-1 text-sm text-gray-900">{user?.name || 'Not specified'}</p>
+                <p className="mt-1 text-sm text-gray-900">{profile.name || 'Not specified'}</p>
               </div>
 
               <div className="sm:col-span-3">
                 <label className="block text-sm font-medium text-gray-700">Email address</label>
-                <p className="mt-1 text-sm text-gray-900">{user?.email || 'Not specified'}</p>
+                <p className="mt-1 text-sm text-gray-900">{profile.email || 'Not specified'}</p>
+              </div>
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700"> Country</label>
+                <p className="mt-1 text-sm text-gray-900">{profile.country || 'Not specified'}</p>
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Age</label>
-                <p className="mt-1 text-sm text-gray-900">{profile.age || 'Not specified'}</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={profile.age || ''}
+                    onChange={(e) => setProfile({ 
+                      ...profile, 
+                      age: e.target.value ? Number(e.target.value) : 0 
+                    })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  />
+                ) : (
+                  <p className="mt-1 text-sm text-gray-900">{profile.age || 'Not specified'}</p>
+                )}
               </div>
 
               <div className="sm:col-span-2">

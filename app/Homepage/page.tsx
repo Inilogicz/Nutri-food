@@ -7,6 +7,7 @@
   import Image from 'next/image';
 
   import { useAuth } from '@/context/AuthContext';
+  import Navbar from '../../components/ui/Navbar';
   
   // Animation variants
   const fadeIn = {
@@ -49,7 +50,7 @@
       router.push('/AI');
     };
     const handleDietician = () => {
-      router.push('/consultation');
+      router.push('/browse-dieticians');
     };
   
     // Redirect if not authenticated
@@ -349,8 +350,9 @@
             className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-purple-200 rounded-full filter blur-3xl"
           />
         </div>
-  
+        <Navbar/>
         <main className="container mx-auto px-4 py-8">
+        
           {/* Hero Section */}
           <motion.section 
             initial="hidden"
