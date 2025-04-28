@@ -1,11 +1,10 @@
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import Script from "next/script";
 import { Suspense } from "react";
-import { Loader2 } from 'lucide-react'; // 🔥 You forgot this import
+import { Loader2 } from 'lucide-react';
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ['latin'] });
@@ -13,6 +12,14 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Diet Talk',
   description: 'Your nutrition companion',
+  icons: {
+    icon: '/dietlogo.png', // Default icon (32x32 recommended)
+    shortcut: '/dietlogo.png', // For older browsers
+    apple: '/dietlogo.png', // Apple touch icon (180x180 recommended)
+  },
+  // Optional: Add these if you want to support PWA
+  manifest: '/manifest.json',
+  themeColor: '#7C3AED', // Your brand purple color
 };
 
 export default function RootLayout({
@@ -33,7 +40,6 @@ export default function RootLayout({
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             </div>
           }>
-            {/* <Navbar /> */}
             <main className="min-h-[calc(100vh-64px)]">
               {children}
               <Toaster position="top-center" />
