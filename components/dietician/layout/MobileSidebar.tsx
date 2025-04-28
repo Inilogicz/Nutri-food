@@ -40,7 +40,7 @@ export default function MobileSidebar() {
     { href: "/dietician/messaging", icon: MessageSquare },
     { href: "/dietician/profile", icon: User },
     { href: "/dietician/wallet", icon: Wallet },
-    { href: "/dietician/settings", icon: Settings },
+    // { href: "/dietician/settings", icon: Settings },
   ];
 
   // Don't show the bottom nav on login/signup pages

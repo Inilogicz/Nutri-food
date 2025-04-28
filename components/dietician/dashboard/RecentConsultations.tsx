@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/app/new/dietician/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,14 +14,98 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/new/dietician/ui/card";
 import { format } from "date-fns";
-import { mockConsultations } from "@/lib/mock-data";
+import { Loader2 } from "lucide-react";
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
+interface Consultation {
+  id: number;
+  name: string | null;
+  user_id: string;
+  dietitian_id: string;
+  rate_per_minute: string;
+  duration_minutes: string;
+  total_cost: string;
+  status: "scheduled" | "ongoing" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  user: User;
+}
 
 export default function RecentConsultations() {
-  // Get the most recent 5 past consultations
-  const pastConsultations = mockConsultations
-    .filter(consultation => new Date(consultation.date) <= new Date())
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchConsultations = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/proxy/consultations/my", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch consultations");
+        }
+
+        const data = await response.json();
+        setConsultations(data.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConsultations();
+  }, []);
+
+  // Get the most recent 5 completed consultations
+  const recentConsultations = consultations
+    .filter(consultation => consultation.status === "completed")
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Consultations</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Consultations</CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <p className="text-red-500 mb-2">Error loading consultations</p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -41,26 +126,31 @@ export default function RecentConsultations() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pastConsultations.map((consultation) => (
+            {recentConsultations.map((consultation) => (
               <TableRow key={consultation.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={consultation.client.avatar} alt={consultation.client.name} />
-                      <AvatarFallback>{consultation.client.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage 
+                        src={consultation.user.avatar || undefined} 
+                        alt={consultation.user.name} 
+                      />
+                      <AvatarFallback>
+                        {consultation.user.name.charAt(0)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{consultation.client.name}</p>
+                      <p className="font-medium">{consultation.user.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {consultation.topic}
+                        {consultation.name || "Nutrition Consultation"}
                       </p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  {format(new Date(consultation.date), "MMM dd, yyyy")}
+                  {format(new Date(consultation.created_at), "MMM dd, yyyy")}
                 </TableCell>
-                <TableCell>{consultation.duration} mins</TableCell>
+                <TableCell>{consultation.duration_minutes} mins</TableCell>
                 <TableCell className="text-right">
                   <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     consultation.status === "completed"
@@ -74,7 +164,7 @@ export default function RecentConsultations() {
                 </TableCell>
               </TableRow>
             ))}
-            {pastConsultations.length === 0 && (
+            {recentConsultations.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center">
                   No recent consultations

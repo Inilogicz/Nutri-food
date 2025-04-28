@@ -50,24 +50,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         isOpen ? "left-0" : "-left-64 lg:left-0"
       )}
     >
-      <div className="flex h-16 items-center border-b px-6">
-        <Link
-          href="/dietician/dashboard"
-          className="flex items-center gap-2 font-bold text-xl"
-        >
-          <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
-            Nutrifood
-          </span>
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-3 top-3 lg:hidden"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+      <div className="flex h-16 items-center justify-between border-b px-4 sm:px-6">
+  <Link
+    href="/dietician/dashboard"
+    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+  >
+    <img 
+      src="/fulllogo.png" 
+      alt="Diettalk logo"
+      className="h-8 w-auto object-contain" // Adjusted sizing
+    />
+    
+  </Link>
+  
+  <Button
+    variant="ghost"
+    size="icon"
+    className="lg:hidden text-gray-500 hover:bg-transparent hover:text-gray-700"
+    onClick={onClose}
+  >
+    <X className="h-5 w-5" /> {/* Slightly larger icon */}
+  </Button>
+</div>
       <div className="flex-1 overflow-auto py-4">
         <nav className="space-y-1 px-2">
           {links.map((link) => (

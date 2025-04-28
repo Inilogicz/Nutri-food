@@ -30,8 +30,8 @@ const getPageTitle = (path: string): string => {
   if (path.includes("/messaging")) return "Messaging";
   if (path.includes("/profile")) return "Profile";
   if (path.includes("/wallet")) return "Wallet";
-  if (path.includes("/settings")) return "Settings";
-  return "Nutrifood";
+  // if (path.includes("/settings")) return "Settings";
+  return "DietTalk";
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {

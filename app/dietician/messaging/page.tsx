@@ -4,31 +4,31 @@ import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import MessageList from "@/components/dietician/messaging/MessageList";
 import MessageThread from "@/components/dietician/messaging/MessageThread";
-import { mockConversations } from "@/lib/mock-data";
 
-// Define the types directly in this file
 interface Message {
-  id: string;
-  sender: string;
-  content: string;
-  timestamp: string;
+  id: number;
+  message: string;
+  message_type: string;
+  who: string;
+  created_at: string;
+  consultation_id: number;
+  receiver_id: number;
 }
 
 interface Client {
-  id: string;
+  id: number;
   name: string;
-  avatar: string;
-  goal: string;
+  avatar?: string;
+  goal?: string;
 }
 
 interface Conversation {
-  id: string;
+  id: number;
   client: Client;
-  unread: boolean;
-  messages: Message[];
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount?: number;
+  messages: Message[];
 }
 
 export default function MessagingPage() {
@@ -42,31 +42,123 @@ export default function MessagingPage() {
       setIsMobileView(window.innerWidth < 768);
     };
 
-    // Simulate fetching messages
-    const timer = setTimeout(() => {
-      // Ensure mock data matches Conversation type
-      const formattedConversations: Conversation[] = mockConversations.map(conv => ({
-        ...conv,
-        lastMessage: conv.messages[conv.messages.length - 1]?.content || '',
-        lastMessageTime: conv.messages[conv.messages.length - 1]?.timestamp || '',
-        unreadCount: conv.unread ? 1 : 0
-      }));
-      
-      setConversations(formattedConversations);
-      if (formattedConversations.length > 0) {
-        setSelectedConversation(formattedConversations[0]);
-      }
-      setIsLoading(false);
-    }, 1000);
+    const fetchConversations = async () => {
+      try {
+        setIsLoading(true);
+        // First fetch the consultations to get the list of conversations
+        const consultationsResponse = await fetch("/api/proxy/consultations/my", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
 
+        if (!consultationsResponse.ok) {
+          throw new Error("Failed to fetch consultations");
+        }
+
+        const consultationsData = await consultationsResponse.json();
+        
+        // Transform each consultation into a conversation
+        const conversationsPromises = consultationsData.data.map(async (consultation: any) => {
+          // Fetch messages for each consultation
+          const messagesResponse = await fetch(`/api/proxy/consultations/${consultation.id}/messages`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+
+          if (!messagesResponse.ok) {
+            console.error(`Failed to fetch messages for consultation ${consultation.id}`);
+            return null;
+          }
+
+          const messagesData = await messagesResponse.json();
+          
+          return {
+            id: consultation.id,
+            client: {
+              id: consultation.user.id,
+              name: consultation.user.name,
+              avatar: consultation.user.avatar,
+            },
+            messages: messagesData.data || [],
+            lastMessage: messagesData.data?.[messagesData.data.length - 1]?.message,
+            lastMessageTime: messagesData.data?.[messagesData.data.length - 1]?.created_at,
+            unreadCount: 0 // You can implement actual unread count logic
+          };
+        });
+
+        const fetchedConversations = (await Promise.all(conversationsPromises)).filter(Boolean);
+        setConversations(fetchedConversations);
+        
+        if (fetchedConversations.length > 0) {
+          setSelectedConversation(fetchedConversations[0]);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConversations();
     handleResize();
     window.addEventListener("resize", handleResize);
 
     return () => {
-      clearTimeout(timer);
       window.removeEventListener("resize", handleResize);
     };
   }, []);
+
+  const handleSendMessage = async (message: string, consultationId: number, receiverId: number) => {
+    try {
+      const response = await fetch("/api/proxy/messages/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          consultation_id: consultationId,
+          message: message,
+          receiver_id: receiverId,
+          message_type: "text",
+          who: "dietitian" // Assuming this is the dietitian sending the message
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send message");
+      }
+
+      const newMessage = await response.json();
+      
+      // Update the conversation with the new message
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === consultationId) {
+          return {
+            ...conv,
+            messages: [...conv.messages, newMessage.data],
+            lastMessage: newMessage.data.message,
+            lastMessageTime: newMessage.data.created_at
+          };
+        }
+        return conv;
+      }));
+
+      // Update the selected conversation if it's the current one
+      if (selectedConversation?.id === consultationId) {
+        setSelectedConversation(prev => ({
+          ...prev!,
+          messages: [...prev!.messages, newMessage.data],
+          lastMessage: newMessage.data.message,
+          lastMessageTime: newMessage.data.created_at
+        }));
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -83,7 +175,7 @@ export default function MessagingPage() {
           <div className={`h-full ${selectedConversation && isMobileView ? 'hidden' : 'w-full md:w-1/3 border-r'}`}>
             <MessageList 
               conversations={conversations}
-              selectedId={selectedConversation?.id || null} // Ensure null instead of undefined
+              selectedId={selectedConversation?.id?.toString() || null}
               onSelect={(conversation) => setSelectedConversation(conversation)}
             />
           </div>
@@ -96,6 +188,9 @@ export default function MessagingPage() {
                 conversation={selectedConversation}
                 onBack={() => setSelectedConversation(null)}
                 isMobileView={isMobileView}
+                onSendMessage={(message) => 
+                  handleSendMessage(message, selectedConversation.id, selectedConversation.client.id)
+                }
               />
             ) : (
               <div className="flex h-full items-center justify-center">

@@ -7,14 +7,45 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Send, PaperclipIcon } from "lucide-react";
 import { format } from "date-fns";
 
-interface MessageThreadProps {
-  conversation: any;
-  onBack: () => void;
-  isMobileView: boolean;
+interface Message {
+  id: number;
+  message: string;
+  message_type: string;
+  who: string;
+  created_at: string;
+  consultation_id: number;
+  receiver_id: number;
 }
 
-export default function MessageThread({ conversation, onBack, isMobileView }: MessageThreadProps) {
+interface Client {
+  id: number;
+  name: string;
+  avatar?: string;
+}
+
+interface Conversation {
+  id: number;
+  client: Client;
+  messages: Message[];
+  lastMessage?: string;
+  lastMessageTime?: string;
+}
+
+interface MessageThreadProps {
+  conversation: Conversation;
+  onBack: () => void;
+  isMobileView: boolean;
+  onSendMessage: (message: string, consultationId: number, receiverId: number) => Promise<void>;
+}
+
+export default function MessageThread({ 
+  conversation, 
+  onBack, 
+  isMobileView,
+  onSendMessage
+}: MessageThreadProps) {
   const [newMessage, setNewMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom of messages
@@ -22,20 +53,23 @@ export default function MessageThread({ conversation, onBack, isMobileView }: Me
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation.messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     
-    // In a real app, this would send the message to the API
-    // For now, we'll just log it
-    console.log("Sending message:", newMessage);
-    
-    // Clear the input
-    setNewMessage("");
+    try {
+      setIsSending(true);
+      await onSendMessage(newMessage, conversation.id, conversation.client.id);
+      setNewMessage("");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const renderMessage = (message: any) => {
-    const isClient = message.sender === "client";
+  const renderMessage = (message: Message) => {
+    const isClient = message.who === "user"; // Assuming 'user' is the client
     return (
       <div
         key={message.id}
@@ -55,19 +89,19 @@ export default function MessageThread({ conversation, onBack, isMobileView }: Me
                 : "bg-purple-600 text-white"
             }`}
           >
-            <p className="text-sm">{message.content}</p>
+            <p className="text-sm">{message.message}</p>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {format(new Date(message.timestamp), "h:mm a")}
+            {format(new Date(message.created_at), "h:mm a")}
           </p>
         </div>
         {!isClient && (
           <Avatar className="ml-2 h-8 w-8 mt-1 border">
             <AvatarImage 
               src="https://images.pexels.com/photos/7465580/pexels-photo-7465580.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-              alt="Dr. Fit Foodie" 
+              alt="Dietitian" 
             />
-            <AvatarFallback>FF</AvatarFallback>
+            <AvatarFallback>D</AvatarFallback>
           </Avatar>
         )}
       </div>
@@ -94,6 +128,9 @@ export default function MessageThread({ conversation, onBack, isMobileView }: Me
           </Avatar>
           <div>
             <h3 className="font-medium text-sm">{conversation.client.name}</h3>
+            <p className="text-xs text-muted-foreground">
+              {conversation.lastMessageTime && format(new Date(conversation.lastMessageTime), "MMM dd, yyyy")}
+            </p>
           </div>
         </div>
       </div>
@@ -124,9 +161,13 @@ export default function MessageThread({ conversation, onBack, isMobileView }: Me
             type="submit"
             size="icon"
             className="flex-shrink-0 bg-purple-600 hover:bg-purple-700"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isSending}
           >
-            <Send className="h-4 w-4" />
+            {isSending ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </form>
       </div>

@@ -35,22 +35,23 @@ export default function WalletSummary({ balance }: { balance: number }) {
 
     const paymentData = {
       public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
-      tx_ref: Date.now().toString(),
-      amount: amount,
+      // tx_ref,
+      amount,
       currency: 'NGN',
       payment_options: 'card,ussd',
       customer: {
-        email: user?.email,
-        name: user?.name,
+        email: user?.email || '',
+        name: user?.name || '',
       },
       customizations: {
-        title: 'Wallet Top-up',
-        description: 'Top up your wallet',
-        logo: '/logo.png',
+        title: 'Diet Talk Wallet Top-up',
+        description: 'Top up your wallet balance',
+        logo: `${process.env.NEXT_PUBLIC_BASE_URL}/logo.png`,
       },
-      redirect_url: `${window.location.origin}/payment/status`,
+      redirect_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/status`,
       callback: function(response: any) {
         console.log('Payment callback:', response);
+        // This will be handled by the redirect URL
       },
       onclose: function() {
         console.log('Payment closed');

@@ -1,25 +1,142 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/app/new/dietician/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/new/dietician/ui/card";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { mockConversations } from "@/lib/mock-data";
+
+interface Message {
+  id: number;
+  message: string;
+  message_type: string;
+  who: string;
+  created_at: string;
+  consultation_id: number;
+  receiver_id: number;
+}
+
+interface Client {
+  id: number;
+  name: string;
+  avatar?: string;
+}
+
+interface Conversation {
+  id: number;
+  client: Client;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unread?: boolean;
+}
 
 export default function RecentMessages() {
-  // Get recent messages (newest first)
-  const recentMessages = mockConversations
-    .map(conversation => ({
-      id: conversation.id,
-      client: conversation.client,
-      timestamp: conversation.messages[conversation.messages.length - 1]?.timestamp || new Date().toISOString(),
-      lastMessage: conversation.messages[conversation.messages.length - 1]?.content || "",
-      unread: conversation.unread,
-    }))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 3);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRecentMessages = async () => {
+      try {
+        setLoading(true);
+        // First fetch the consultations
+        const consultationsResponse = await fetch("/api/proxy/consultations/my", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (!consultationsResponse.ok) {
+          throw new Error("Failed to fetch consultations");
+        }
+
+        const consultationsData = await consultationsResponse.json();
+        
+        // Get the most recent message for each consultation
+        const conversationsWithMessages = await Promise.all(
+          consultationsData.data.map(async (consultation: any) => {
+            const messagesResponse = await fetch(
+              `/api/proxy/consultations/${consultation.id}/messages`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              }
+            );
+
+            if (!messagesResponse.ok) {
+              console.error(`Failed to fetch messages for consultation ${consultation.id}`);
+              return null;
+            }
+
+            const messagesData = await messagesResponse.json();
+            const lastMessage = messagesData.data?.[messagesData.data.length - 1];
+
+            return {
+              id: consultation.id,
+              client: {
+                id: consultation.user.id,
+                name: consultation.user.name,
+                avatar: consultation.user.avatar,
+              },
+              lastMessage: lastMessage?.message,
+              lastMessageTime: lastMessage?.created_at,
+              unread: false // You would implement actual unread logic based on your API
+            };
+          })
+        );
+
+        // Filter out null values and sort by most recent
+        const validConversations = conversationsWithMessages.filter(Boolean) as Conversation[];
+        const sortedConversations = validConversations.sort((a, b) => 
+          new Date(b.lastMessageTime || 0).getTime() - new Date(a.lastMessageTime || 0).getTime()
+        );
+
+        setConversations(sortedConversations.slice(0, 3)); // Get top 3 most recent
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecentMessages();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Messages</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Messages</CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <p className="text-red-500 mb-2">{error}</p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -30,35 +147,37 @@ export default function RecentMessages() {
         </Link>
       </CardHeader>
       <CardContent>
-        {recentMessages.length > 0 ? (
+        {conversations.length > 0 ? (
           <div className="space-y-4">
-            {recentMessages.map((message) => (
+            {conversations.map((conversation) => (
               <Link
-                key={message.id}
-                href={`/dietician/messaging?id=${message.id}`}
+                key={conversation.id}
+                href={`/dietician/messaging?id=${conversation.id}`}
                 className="block"
               >
-                <div className={`flex items-start justify-between rounded-lg border p-4 transition-all hover:bg-muted/50 ${message.unread ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
+                <div className={`flex items-start justify-between rounded-lg border p-4 transition-all hover:bg-muted/50 ${conversation.unread ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
                   <div className="flex items-start space-x-4">
                     <Avatar className="h-10 w-10 border">
-                      <AvatarImage src={message.client.avatar} alt={message.client.name} />
-                      <AvatarFallback>{message.client.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={conversation.client.avatar} alt={conversation.client.name} />
+                      <AvatarFallback>{conversation.client.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center">
                         <h4 className="text-sm font-medium leading-none">
-                          {message.client.name}
+                          {conversation.client.name}
                         </h4>
-                        {message.unread && (
+                        {conversation.unread && (
                           <span className="ml-2 h-2 w-2 rounded-full bg-purple-600" />
                         )}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-                        {message.lastMessage}
+                        {conversation.lastMessage || "No messages yet"}
                       </p>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
-                      </div>
+                      {conversation.lastMessageTime && (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(conversation.lastMessageTime), { addSuffix: true })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

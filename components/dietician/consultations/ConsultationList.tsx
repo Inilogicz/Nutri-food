@@ -28,20 +28,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface Client {
-  id: string;
+interface User {
+  id: number;
   name: string;
-  avatar: string;
+  email: string;
+  avatar?: string;
 }
 
 export interface Consultation {
-  id: string;
-  client: Client;
-  date: string;
-  duration: number;
-  topic: string;
-  status: string;
-  notes: string;
+  id: number;
+  name: string | null;
+  user_id: string;
+  dietitian_id: string;
+  rate_per_minute: string;
+  duration_minutes: string;
+  total_cost: string;
+  status: "scheduled" | "ongoing" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  user: User;
 }
 
 interface ConsultationListProps {
@@ -50,14 +55,12 @@ interface ConsultationListProps {
 
 export default function ConsultationList({ consultations }: ConsultationListProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  
+  const [statusFilter, setStatusFilter] = useState<"all" | "scheduled" | "ongoing" | "completed" | "cancelled">("all");
 
   // Filter consultations based on search term and status
   const filteredConsultations = consultations.filter((consultation) => {
     const matchesSearch =
-      consultation.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      consultation.topic.toLowerCase().includes(searchTerm.toLowerCase());
+      consultation.user.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus =
       statusFilter === "all" || consultation.status === statusFilter;
@@ -69,6 +72,8 @@ export default function ConsultationList({ consultations }: ConsultationListProp
     switch (status) {
       case "completed":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "ongoing":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
       case "scheduled":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "cancelled":
@@ -94,7 +99,7 @@ export default function ConsultationList({ consultations }: ConsultationListProp
         <div className="flex items-center gap-2">
           <Select
             value={statusFilter}
-            onValueChange={setStatusFilter}
+            onValueChange={(value) => setStatusFilter(value as any)}
           >
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Filter by status" />
@@ -102,6 +107,7 @@ export default function ConsultationList({ consultations }: ConsultationListProp
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="ongoing">Ongoing</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
@@ -117,9 +123,9 @@ export default function ConsultationList({ consultations }: ConsultationListProp
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="hidden md:table-cell">Date & Time</TableHead>
+              <TableHead className="hidden md:table-cell">Date</TableHead>
               <TableHead className="hidden md:table-cell">Duration</TableHead>
-              <TableHead className="hidden md:table-cell">Topic</TableHead>
+              <TableHead className="hidden md:table-cell">Rate</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -131,28 +137,33 @@ export default function ConsultationList({ consultations }: ConsultationListProp
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={consultation.client.avatar} alt={consultation.client.name} />
-                        <AvatarFallback>{consultation.client.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage 
+                          src={consultation.user.avatar || undefined} 
+                          alt={consultation.user.name} 
+                        />
+                        <AvatarFallback>
+                          {consultation.user.name.charAt(0)}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{consultation.client.name}</p>
+                        <p className="font-medium">{consultation.user.name}</p>
                         <p className="text-xs text-muted-foreground md:hidden">
-                          {format(new Date(consultation.date), "MMM dd, yyyy h:mm a")}
+                          {format(new Date(consultation.created_at), "MMM dd, yyyy")}
                         </p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {format(new Date(consultation.date), "MMM dd, yyyy")}
+                    {format(new Date(consultation.created_at), "MMM dd, yyyy")}
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(consultation.date), "h:mm a")}
+                      {format(new Date(consultation.created_at), "h:mm a")}
                     </p>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {consultation.duration} mins
+                    {consultation.duration_minutes} mins
                   </TableCell>
-                  <TableCell className="hidden max-w-[200px] truncate md:table-cell">
-                    {consultation.topic}
+                  <TableCell className="hidden md:table-cell">
+                    ₦{parseFloat(consultation.rate_per_minute).toFixed(2)}/min
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusBadgeClass(consultation.status)}`}>
@@ -161,7 +172,7 @@ export default function ConsultationList({ consultations }: ConsultationListProp
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {consultation.status === "scheduled" && (
+                      {(consultation.status === "scheduled" || consultation.status === "ongoing") && (
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -179,7 +190,7 @@ export default function ConsultationList({ consultations }: ConsultationListProp
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem>View Details</DropdownMenuItem>
                           <DropdownMenuItem>Edit</DropdownMenuItem>
-                          {consultation.status === "scheduled" && (
+                          {(consultation.status === "scheduled" || consultation.status === "ongoing") && (
                             <DropdownMenuItem className="text-red-600">Cancel</DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
