@@ -132,8 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Redirect dieticians away from user routes
       if (state.userType === 'dietician' && isUserRoute) {
-        console.log('Redirecting dietician to /dietician/dashboard');
-        router.push('/dietician/dashboard');
+        console.log('Redirecting dietician to /dietician/login');
+        router.push('/dietician/login');
       }
       // Redirect users away from dietician routes
       else if (state.userType === 'user' && isDieticianRoute) {
