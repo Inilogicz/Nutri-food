@@ -9,18 +9,22 @@ import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: 'Diet Talk',
-  description: 'Your nutrition companion',
+export const viewport = {
+  themeColor: '#9218f9',
+  // other viewport settings
+}
+export const metadata = {
+  title: "Diet Talk",
+  description: "Your nutrition companion",
   icons: {
-    icon: '/dietlogo.png', // Default icon (32x32 recommended)
-    shortcut: '/dietlogo.png', // For older browsers
-    apple: '/dietlogo.png', // Apple touch icon (180x180 recommended)
+    icon: "/dietlogo.png", // Default icon (32x32 recommended)
+    shortcut: "/dietlogo.png", // For older browsers
+    apple: "/dietlogo.png", // Apple touch icon (180x180 recommended)
   },
   // Optional: Add these if you want to support PWA
-  manifest: '/manifest.json',
-  themeColor: '#7C3AED', // Your brand purple color
-};
+  manifest: "/manifest.json",
+  themeColor: "#9218f9", // Your brand purple color
+};  
 
 export default function RootLayout({
   children,

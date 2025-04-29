@@ -62,8 +62,14 @@ function App() {
 
   const handleConfirmConsultation = async (duration: number) => {
     if (!selectedDietitian) return;
-
+  
     try {
+      // Save to localStorage before making the API call
+      localStorage.setItem('selectedDietitian', JSON.stringify({
+        id: selectedDietitian.id,
+        duration: duration
+      }));
+  
       const response = await fetch("/api/proxy/consultations/start", {
         method: "POST",
         headers: {
@@ -71,16 +77,15 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: selectedDietitian.name,
           dietitian_id: selectedDietitian.id,
           duration: duration,
         }),
       });
-
+  
       if (!response.ok) {
         throw new Error("Failed to start consultation");
       }
-
+  
       const data = await response.json();
       window.location.href = `/consultation/${data.data[0].id}`;
     } catch (err) {

@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 export default function DieticianRedirect() {
   const router = useRouter();
+  
 
   useEffect(() => {
     // Simulating auth check - replace with actual auth check logic

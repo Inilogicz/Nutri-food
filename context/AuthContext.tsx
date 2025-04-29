@@ -142,10 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Redirect authenticated users away from auth pages
-      if (isAuthPage) {
-        console.log('Redirecting authenticated user away from auth page');
-        router.push(state.userType === 'dietician' ? '/dietician/dashboard' : '/Homepage');
-      }
+     
 
       // Redirect authenticated users from root to their respective dashboard
       if (pathname === '/') {
@@ -195,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Redirect based on user type
-    router.push(userData.type === 'dietician' ? '/dietician/dashboard' : '/Homepage');
+
   };
 
   const logout = () => {

@@ -7,7 +7,7 @@ import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import MobileSidebar from "@/components/dietician/layout/MobileSidebar";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] })
 
 export default function DieticianLayout({
   children,
