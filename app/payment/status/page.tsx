@@ -12,13 +12,21 @@ export default function PaymentStatusPage() {
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [message, setMessage] = useState('Processing your payment...');
+  const [amount, setAmount] = useState<number | null>(null);
 
   useEffect(() => {
     const paymentStatus = searchParams.get('status');
-    const amount = localStorage.getItem('topupAmount');
+    const storedAmount = localStorage.getItem('topupAmount');
+
+    // Clear the amount from localStorage regardless of status
+    if (storedAmount) {
+      setAmount(Number(storedAmount));
+      localStorage.removeItem('topupAmount');
+    }
 
     const handlePayment = async () => {
       try {
+        // If Flutterwave says successful, we trust that and proceed to topup
         if (paymentStatus === 'successful' && amount) {
           const response = await fetch('/api/proxy/user/top-up', {
             method: 'POST',
@@ -26,32 +34,38 @@ export default function PaymentStatusPage() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ amount: Number(amount) })
+            body: JSON.stringify({ amount })
           });
 
-          if (response.ok) {
+          if (!response.ok) {
+            console.error('Top-up failed:', await response.text());
+            // Even if top-up API fails, we consider payment successful (money was taken)
+            // But we'll show a note that wallet update is pending
             setStatus('success');
-            setMessage('Payment Successful!');
-            localStorage.removeItem('topupAmount');
-          } else {
-            throw new Error(await response.text());
+            setMessage(`Payment received but wallet update pending. Contact support if balance doesn't update soon.`);
+            return;
           }
+
+          setStatus('success');
+          setMessage(`You've successfully topped up your account with ₦${amount.toLocaleString()}`);
         } else {
-          throw new Error(paymentStatus === 'cancelled' ? 'Payment cancelled' : 'Payment failed');
+          // Handle cancelled or failed payments
+          setStatus('failed');
+          setMessage(
+            paymentStatus === 'cancelled' 
+              ? 'Payment was cancelled' 
+              : 'Unfortunately, we were unable to top up your account'
+          );
         }
       } catch (error) {
         console.error('Payment processing error:', error);
         setStatus('failed');
-        setMessage(
-          paymentStatus === 'cancelled' 
-            ? 'Payment Cancelled' 
-            : 'Payment Failed. Please try again.'
-        );
+        setMessage('Payment processing error. Please check your wallet balance.');
       }
     };
 
     handlePayment();
-  }, [searchParams, token]);
+  }, [searchParams, token, amount]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -79,9 +93,9 @@ export default function PaymentStatusPage() {
             >
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Received!</h1>
             <p className="text-gray-600 mb-6">
-              Your wallet has been credited successfully.
+              {message}
             </p>
           </>
         ) : (
@@ -93,11 +107,9 @@ export default function PaymentStatusPage() {
             >
               <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">{message}</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Not Completed</h1>
             <p className="text-gray-600 mb-6">
-              {searchParams.get('status') === 'cancelled'
-                ? 'You cancelled the payment process.'
-                : 'Something went wrong with your payment.'}
+              {message}
             </p>
           </>
         )}
@@ -111,9 +123,7 @@ export default function PaymentStatusPage() {
             className={`w-full py-6 rounded-xl text-lg font-semibold ${
               status === 'success'
                 ? 'bg-purple-600 hover:bg-purple-700'
-                : status === 'failed'
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-gray-600 hover:bg-gray-700'
+                : 'bg-red-600 hover:bg-red-700'
             }`}
           >
             Back to Wallet
@@ -127,7 +137,7 @@ export default function PaymentStatusPage() {
             transition={{ delay: 0.5 }}
             className="text-sm text-gray-500 mt-4"
           >
-            Transaction ID: {searchParams.get('transaction_id')}
+            Transaction ID: {searchParams.get('transaction_id') || 'N/A'}
           </motion.p>
         )}
       </motion.div>
