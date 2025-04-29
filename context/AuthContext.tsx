@@ -9,6 +9,7 @@ interface BaseUser {
   email: string;
   image?: string;
   phone_number?: string;
+  
 }
 
 interface User extends BaseUser {
@@ -17,14 +18,14 @@ interface User extends BaseUser {
   type: "user";
 }
 
-interface Dietician extends BaseUser {
+interface Dietitian extends BaseUser {
   bio?: string;
   profile_picture?: string;
   balance?: string;
-  type: "dietician";
+  type: "dietitian";
 }
 
-type AuthUser = User | Dietician;
+type AuthUser = User | Dietitian;
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -33,7 +34,7 @@ interface AuthContextType {
   login: (token: string, userData: AuthUser) => void;
   logout: () => void;
   loading: boolean;
-  userType: "user" | "dietician" | null;
+  userType: "user" | "dietitian" | null;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: AuthUser | null;
     token: string | null;
     loading: boolean;
-    userType: "user" | "dietician" | null;
+    userType: "user" | "dietitian" | null;
   }>({
     isAuthenticated: false,
     user: null,
@@ -124,19 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Handle authenticated users
     if (state.isAuthenticated) {
-      const isDieticianRoute =
+      const isDietitianRoute =
         pathname?.startsWith('/dietician') &&
         !pathname.startsWith('/dietician/login') &&
         !pathname.startsWith('/dietician/signup');
       const isUserRoute = pathname === '/Homepage'; // Adjust based on actual user routes
 
       // Redirect dieticians away from user routes
-      if (state.userType === 'dietician' && isUserRoute) {
-        console.log('Redirecting dietician to /dietician/login');
+      if (state.userType === 'dietitian' && isUserRoute) {
+        console.log('Redirecting dietitian to /dietician/login');
         router.push('/dietician/login');
       }
       // Redirect users away from dietician routes
-      else if (state.userType === 'user' && isDieticianRoute) {
+      else if (state.userType === 'user' && isDietitianRoute) {
         console.log('Redirecting user to /Homepage');
         router.push('/Homepage');
       }
@@ -147,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Redirect authenticated users from root to their respective dashboard
       if (pathname === '/') {
         console.log('Redirecting authenticated user from root');
-        router.push(state.userType === 'dietician' ? '/dietician/dashboard' : '/Homepage');
+        router.push(state.userType === 'dietitian' ? '/dietician/dashboard' : '/Homepage');
       }
     }
   }, [state.isAuthenticated, state.loading, state.userType, pathname, router]);
@@ -175,9 +176,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             gender: (userData as User).gender,
           }
         : {
-            bio: (userData as Dietician).bio,
-            profile_picture: (userData as Dietician).profile_picture,
-            balance: (userData as Dietician).balance,
+            bio: (userData as Dietitian).bio,
+            profile_picture: (userData as Dietitian).profile_picture,
+            balance: (userData as Dietitian).balance,
           }),
     };
 

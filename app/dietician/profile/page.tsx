@@ -26,7 +26,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const fetchProfile = useCallback(async () => {
-    if (!isAuthenticated || user?.type !== "dietician" || !token) {
+    if (!isAuthenticated || user?.type !== "dietitian" || !token) {
       logout();
       return;
     }
@@ -85,7 +85,7 @@ export default function ProfilePage() {
   }, [isAuthenticated, user, logout, token]);
 
   const handleProfileUpdate = useCallback(async (updatedData: Partial<Profile>) => {
-    if (!isAuthenticated || user?.type !== "dietician" || !token) {
+    if (!isAuthenticated || user?.type !== "dietitian" || !token) {
       logout();
       return false;
     }
@@ -131,7 +131,7 @@ export default function ProfilePage() {
   }, [isAuthenticated, user, logout, token, fetchProfile]);
 
   useEffect(() => {
-    if (user?.type === "dietician") {
+    if (user?.type === "dietitian") {
       fetchProfile();
     } else if (!isAuthenticated) {
       router.push("/login");
@@ -146,7 +146,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!isAuthenticated || user?.type !== "dietician") {
+  if (!isAuthenticated || user?.type !== "dietitian") {
     return null;
   }
 

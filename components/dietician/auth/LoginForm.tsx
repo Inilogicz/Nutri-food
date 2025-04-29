@@ -107,7 +107,7 @@ export default function LoginForm() {
         email: dietitian.email,
         phone_number: dietitian.phone_number,
         image: dietitian.image,
-        type: "dietician",
+        type: "dietitian",
         bio: dietitian.bio,
         profile_picture: dietitian.profile_picture,
         balance: dietitian.balance,

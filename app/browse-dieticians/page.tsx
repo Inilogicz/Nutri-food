@@ -70,8 +70,6 @@
       });
       setSelectedDietitian(dietitian);
       setShowModal(true);
-      // Note: Not saving to database here, as consultation isn't confirmed yet.
-      // If you need to save dietitian_id to DB on click, add API call here.
     };
   
     const handleConfirmConsultation = async (duration: number) => {
@@ -79,64 +77,45 @@
         console.error("No dietitian selected");
         return;
       }
-    
+  
       console.log("Confirming consultation:", {
         dietitian_id: selectedDietitian.id,
         duration,
       });
-    
+  
       try {
-        console.log("Saving to localStorage:", {
-          consultation_dietitian_id: selectedDietitian.id,
-          consultation_duration: duration,
-        });
+        // Save to localStorage for reference
         localStorage.setItem('consultation_dietitian_id', selectedDietitian.id.toString());
         localStorage.setItem('consultation_duration', duration.toString());
-    
+  
         const payload = {
           name: "health consultation",
           dietitian_id: selectedDietitian.id,
           duration,
         };
+  
         const token = localStorage.getItem("token");
         const headers = {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         };
-        console.log("Request details:", {
-          url: "/api/proxy/consultations/start",
-          method: "POST",
-          headers,
-          payload,
-        });
-    
+  
+        // Start the consultation
         const response = await fetch("/api/proxy/consultations/start", {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
         });
-    
-        const contentType = response.headers.get("content-type");
+  
         if (!response.ok) {
-          const text = await response.text();
-          console.error(`Failed to start consultation: HTTP ${response.status}`, text.slice(0, 200));
-          if (contentType?.includes("application/json")) {
-            const errorData = JSON.parse(text);
-            throw new Error(errorData.error || `HTTP ${response.status}: Failed to start consultation`);
-          } else {
-            throw new Error(`HTTP ${response.status}: Server error. Please try again or contact support.`);
-          }
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to start consultation');
         }
-    
-        if (!contentType?.includes("application/json")) {
-          const text = await response.text();
-          console.error("Non-JSON response received:", text.slice(0, 200));
-          throw new Error("Invalid response: Expected JSON, received " + contentType);
-        }
-    
+  
         const data = await response.json();
         console.log("Consultation started successfully:", data);
-        console.log("Redirecting to /consultation/", data.data[0].id);
+        
+        // Redirect to the new consultation page
         window.location.href = `/consultation/${data.data[0].id}`;
       } catch (err) {
         console.error("Error in handleConfirmConsultation:", err);

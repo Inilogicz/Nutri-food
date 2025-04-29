@@ -50,7 +50,7 @@ export default function Login() {
         id: dietitian.id,
         name: dietitian.name,
         email: dietitian.email,
-        type: 'dietician',
+        type: 'dietitian',
         bio: dietitian.bio
         // Removed phone_number since it's not in the response
         // Add other fields as needed from the response

@@ -85,7 +85,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   {user?.name || "Dietician"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {user?.type === "dietician" ? "Dietician" : "User"}
+                  {user?.type === "dietitian" ? "Dietician" : "User"}
                 </span>
               </div>
               <ChevronDown className="hidden h-4 w-4 opacity-50 md:block" />
