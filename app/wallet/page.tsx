@@ -12,26 +12,32 @@ export default function WalletPage() {
   const [walletBalance, setWalletBalance] = useState(0);
   const { token } = useAuth();
 
+  const fetchWalletBalance = async () => {
+    try {
+      setIsLoading(true);
+      const profileResponse = await fetch("/api/proxy/profile/", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!profileResponse.ok) throw new Error("Failed to fetch balance");
+      const profileData = await profileResponse.json();
+      setWalletBalance(parseFloat(profileData.data.balance) || 0);
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
+      setWalletBalance(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchWalletBalance = async () => {
-      try {
-        const profileResponse = await fetch("/api/proxy/profile/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!profileResponse.ok) throw new Error("Failed to fetch balance");
-        const profileData = await profileResponse.json();
-        setWalletBalance(parseFloat(profileData.data.balance) || 0);
-      } catch (error) {
-        console.error("Error fetching wallet balance:", error);
-        setWalletBalance(0);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchWalletBalance();
   }, [token]);
+
+  const handleTopupSuccess = () => {
+    // Refresh balance after successful top-up
+    fetchWalletBalance();
+  };
 
   if (isLoading) {
     return (
@@ -54,12 +60,14 @@ export default function WalletPage() {
         </div>
 
         <div className="w-full flex flex-col sm:flex-row gap-4 mb-6">
-          <WalletSummary balance={walletBalance} />
+          <WalletSummary 
+            balance={walletBalance} 
+            onTopupSuccess={handleTopupSuccess}
+          />
         </div>
 
         <div className="w-full bg-white p-4 rounded-lg shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Transaction History</h2>
-          {/* TransactionList handles its own data */}
           <TransactionList />
         </div>
       </div>
