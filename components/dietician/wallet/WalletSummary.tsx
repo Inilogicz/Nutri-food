@@ -1,149 +1,205 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+'use client';
 
-export default function PaymentStatusPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading')
-  const [message, setMessage] = useState('Finalizing transaction...')
-  const [amount, setAmount] = useState<number>(0)
-  const [txRef, setTxRef] = useState<string>('')
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from "@/app/new/dietician/ui/card";
+import { Button } from "@/app/new/dietician/ui/button";
+import { Wallet, Plus, X, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from 'next/navigation';
+
+export default function WalletSummary({ balance, onTopupSuccess }: { 
+  balance: number;
+  onTopupSuccess?: () => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    const processPayment = async () => {
-      // 1. Get Flutterwave callback status
-      const paymentStatus = searchParams.get('status')
+    const script = document.createElement('script');
+    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.async = true;
+    document.body.appendChild(script);
 
-      // 2. Retrieve stored payment data
-      const storedData = localStorage.getItem('topupData')
-      if (!storedData) {
-        setStatus('failed')
-        setMessage('Transaction data not found. Please check your wallet balance.')
-        return
-      }
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
-      // 3. Parse stored data
-      let paymentData: { amount: number; tx_ref: string; timestamp: number }
-      try {
-        paymentData = JSON.parse(storedData)
-        setAmount(paymentData.amount)
-        setTxRef(paymentData.tx_ref)
-      } catch (e) {
-        setStatus('failed')
-        setMessage('Invalid transaction data. Contact support with transaction ID.')
-        return
-      }
+  const generateTransactionRef = () => {
+    return `DT-${user?.id}-${Date.now()}`;
+  };
 
-      // 4. Verify payment status
-      if (paymentStatus !== 'successful') {
-        setStatus('failed')
-        setMessage(paymentStatus === 'cancelled' ? 'Payment was cancelled' : 'Payment failed')
-        localStorage.removeItem('topupData')
-        return
-      }
-
-      // 5. Update wallet via API - ONLY SEND AMOUNT
-      try {
-        const response = await fetch('/api/proxy/user/top-up', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            amount: paymentData.amount // Only sending amount to the endpoint
-          })
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'Wallet update failed')
-        }
-
-        // 6. Success case
-        localStorage.removeItem('topupData')
-        setStatus('success')
-        setMessage(`₦${paymentData.amount.toLocaleString('en-NG')} added successfully!`)
-      } catch (error) {
-        console.error('Top-up error:', error)
-        setStatus('failed')
-        setMessage('Payment verified but wallet update pending. Refresh in 2 minutes.')
-      }
+  const handlePayment = async (amount: number) => {
+    if (amount < 100) {
+      alert('Minimum top-up is ₦100');
+      return;
     }
 
-    processPayment()
-  }, [searchParams])
+    setIsProcessing(true);
+    const tx_ref = generateTransactionRef();
+    localStorage.setItem('topupData', JSON.stringify({
+      amount,
+      tx_ref,
+      timestamp: Date.now()
+    }));
 
-  const handleRefresh = () => {
-    window.location.reload()
-  }
+    try {
+      //@ts-ignore
+      window.FlutterwaveCheckout({
+        public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
+        tx_ref,
+        amount,
+        currency: 'NGN',
+        payment_options: 'card,ussd',
+        customer: {
+          email: user?.email || '',
+          name: user?.name || '',
+        },
+        customizations: {
+          title: 'Diet Talk Wallet Top-up',
+          description: 'Top up your wallet balance',
+          logo: `${process.env.NEXT_PUBLIC_BASE_URL}/dietlogo.png`,
+        },
+        redirect_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment/status`,
+        callback: function(response: any) {
+          console.log('Payment callback:', response);
+          // Handle successful payment callback
+          if (response.status === 'successful') {
+            if (onTopupSuccess) onTopupSuccess();
+          }
+        },
+        onclose: function() {
+          console.log('Payment closed');
+          setIsProcessing(false);
+        }
+      });
+    } catch (error) {
+      console.error('Payment error:', error);
+      setIsProcessing(false);
+    }
+  };
+
+  const quickAmounts = [500, 1000, 2000, 5000];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center"
-      >
-        {/* UI remains the same */}
-        {status === 'loading' && (
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-12 w-12 text-blue-500 animate-spin mb-4" />
-            <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
-          </div>
-        )}
+    <div className="w-full max-w-4xl mx-auto">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-4">
+        <Card className="flex-1 rounded-xl lg:rounded-2xl overflow-hidden shadow-sm lg:shadow-md bg-gradient-to-br from-purple-600 to-purple-800 border-0">
+          <CardContent className="p-4 lg:p-6 text-white">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs lg:text-sm text-purple-100/90 mb-1">Available Balance</p>
+                <h2 className="text-2xl lg:text-4xl font-bold tracking-tight">₦{balance.toLocaleString('en-NG')}</h2>
+              </div>
+              <div className="bg-white/10 p-2 rounded-lg">
+                <Wallet className="h-5 w-5 lg:h-6 lg:w-6 text-purple-100" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {status === 'success' && (
-          <>
-            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Top-Up Successful!</h1>
-            <p className="text-gray-600 mb-6">{message}</p>
-          </>
-        )}
+        <Button
+          onClick={() => setShowModal(true)}
+          className="flex-1 h-auto py-3 lg:py-4 bg-gradient-to-r from-purple-700 to-purple-900 hover:from-purple-800 hover:to-purple-950 text-white rounded-xl lg:rounded-2xl text-base lg:text-lg font-semibold shadow-sm lg:shadow-md flex items-center justify-center gap-2"
+        >
+          <Plus className="h-4 w-4 lg:h-5 lg:w-5" />
+          <span>Top Up Wallet</span>
+        </Button>
+      </div>
 
-        {status === 'failed' && (
-          <>
-            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">
-              {message.includes('cancelled') ? 'Payment Cancelled' : 'Payment Issue'}
-            </h1>
-            <p className="text-gray-600 mb-6">{message}</p>
-          </>
-        )}
-
-        <div className="mt-6 space-y-3">
-          <Button
-            onClick={() => router.push('/wallet')}
-            className={`w-full py-6 text-lg font-semibold ${
-              status === 'success' ? 'bg-green-600 hover:bg-green-700' 
-              : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 backdrop-blur-sm bg-black/30 flex justify-center items-center z-50 p-4"
+            onClick={() => setShowModal(false)}
           >
-            {status === 'success' ? 'View Wallet' : 'Back to Wallet'}
-          </Button>
-
-          {status === 'failed' && !message.includes('cancelled') && (
-            <Button
-              onClick={handleRefresh}
-              className="w-full py-6 text-lg font-semibold bg-amber-500 hover:bg-amber-600"
+            <motion.div 
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md relative"
+              onClick={(e) => e.stopPropagation()}
             >
-              Refresh Status
-            </Button>
-          )}
-        </div>
-
-        <div className="mt-6 text-sm text-gray-500 space-y-1">
-          {txRef && <p>Reference: {txRef}</p>}
-          {searchParams.get('transaction_id') && (
-            <p>Transaction ID: {searchParams.get('transaction_id')}</p>
-          )}
-        </div>
-      </motion.div>
+              <button 
+                onClick={() => setShowModal(false)}
+                className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                disabled={isProcessing}
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+              
+              <div className="text-center mb-6">
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-800">Top Up Your Wallet</h2>
+                <p className="text-gray-500 text-sm mt-1">Enter amount to continue</p>
+              </div>
+              
+              <div className="mb-6">
+                <input
+                  type="number"
+                  placeholder="₦0.00"
+                  min="100"
+                  className="w-full border-2 border-purple-200 focus:border-purple-500 rounded-xl p-4 text-center text-lg font-medium mb-4 outline-none transition-colors"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  disabled={isProcessing}
+                />
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {quickAmounts.map((amt) => (
+                    <button
+                      key={amt}
+                      onClick={() => setAmount(amt.toString())}
+                      className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                        amount === amt.toString() 
+                          ? 'bg-purple-100 border-purple-500 text-purple-700' 
+                          : 'border-gray-300 hover:border-purple-300 text-gray-700'
+                      }`}
+                      disabled={isProcessing}
+                    >
+                      ₦{amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+                
+                <p className="text-xs text-gray-400 text-center">Minimum amount: ₦100</p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-3 rounded-xl border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handlePayment(Number(amount))}
+                  disabled={!amount || Number(amount) < 100 || isProcessing}
+                  className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </span>
+                  ) : (
+                    "Continue to Payment"
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  )
+  );
 }
