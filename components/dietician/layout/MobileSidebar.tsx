@@ -31,6 +31,8 @@ export default function MobileSidebar() {
     // Clear authentication token
     localStorage.removeItem("dietician_token");
     // Redirect to login
+
+    
     router.push("/dietician/login");
   };
 

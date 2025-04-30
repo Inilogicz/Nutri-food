@@ -21,31 +21,54 @@ interface StatsData {
 export default function DashboardStats() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/proxy/dietitian/statistics');
-        const data = await response.json();
-        
-        if (data.status && data.data) {
-          // Simulate previous month's data (in a real app, this would come from your API)
-          const previousMonthData = {
-            total_consultations: Math.max(0, data.data.total_consultations - 2),
-            unique_users_messaging: Math.max(0, data.data.unique_users_messaging - 1),
-            monthly_earnings: 1000, // Base amount
-            consultation_time: 8.5 // Base hours
-          };
+        // Using your configured proxy endpoint
+        const response = await fetch('/api/proxy/dietitian/statistics', {
+          headers: {
+            'Content-Type': 'application/json',
+            // Add any required auth headers here if needed
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          }
+        });
 
-          setStats({
-            ...data.data,
-            monthly_earnings: 1240,
-            consultation_time: 12.5,
-            previous_month: previousMonthData
-          });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || `Request failed with status ${response.status}`
+          );
         }
-      } catch (error) {
-        console.error("Error fetching stats:", error);
+
+        const { data } = await response.json();
+
+        if (!data) {
+          throw new Error('No data received from API');
+        }
+
+        // Calculate previous month's data (mock for now)
+        const previousMonthData = {
+          total_consultations: Math.max(0, data.total_consultations - 2),
+          unique_users_messaging: Math.max(0, data.unique_users_messaging - 1),
+          monthly_earnings: 1000,
+          consultation_time: 8.5
+        };
+
+        setStats({
+          ...data,
+          monthly_earnings: 0, // Mock data
+          consultation_time: 0, // Mock data
+          previous_month: previousMonthData
+        });
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setError(
+          err instanceof Error 
+            ? err.message 
+            : 'Failed to load statistics'
+        );
       } finally {
         setLoading(false);
       }
@@ -54,13 +77,12 @@ export default function DashboardStats() {
     fetchStats();
   }, []);
 
-  // Calculate percentage change helper function
+  // Helper functions
   const calculateChange = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? 100 : 0;
     return ((current - previous) / previous) * 100;
   };
 
-  // Calculate absolute change helper function
   const calculateAbsoluteChange = (current: number, previous: number) => {
     return current - previous;
   };
@@ -84,6 +106,18 @@ export default function DashboardStats() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-white shadow-sm border-0 col-span-4">
+          <CardContent className="p-4 text-center text-red-500">
+            Error: {error}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {/* Total Consultations */}
@@ -103,7 +137,7 @@ export default function DashboardStats() {
           {stats?.previous_month && (
             <p className="text-xs text-gray-500 mt-1">
               <span className={
-                stats.total_consultations >= (stats.previous_month.total_consultations || 0) 
+                stats.total_consultations >= stats.previous_month.total_consultations 
                   ? "text-green-500 font-medium" 
                   : "text-red-500 font-medium"
               }>
@@ -111,13 +145,13 @@ export default function DashboardStats() {
                   stats.total_consultations,
                   stats.previous_month.total_consultations
                 )).toFixed(0)}%
-                {stats.total_consultations >= (stats.previous_month.total_consultations || 0) ? '↑' : '↓'}
+                {stats.total_consultations >= stats.previous_month.total_consultations ? '↑' : '↓'}
               </span> from last month
             </p>
           )}
         </CardContent>
       </Card>
-      
+
       {/* Active Clients */}
       <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-all duration-300 group">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -135,7 +169,7 @@ export default function DashboardStats() {
           {stats?.previous_month && (
             <p className="text-xs text-gray-500 mt-1">
               <span className={
-                stats.unique_users_messaging >= (stats.previous_month.unique_users_messaging || 0)
+                stats.unique_users_messaging >= stats.previous_month.unique_users_messaging
                   ? "text-green-500 font-medium"
                   : "text-red-500 font-medium"
               }>
@@ -152,7 +186,7 @@ export default function DashboardStats() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Monthly Earnings */}
       <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-all duration-300 group">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -184,7 +218,7 @@ export default function DashboardStats() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Consultation Time */}
       <Card className="bg-white shadow-sm border-0 hover:shadow-md transition-all duration-300 group">
         <CardHeader className="flex flex-row items-center justify-between pb-2">

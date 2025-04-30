@@ -37,7 +37,7 @@ export default function LoginPage() {
               animate={{ y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              Nutrifood<span className="text-purple-300">Pro</span>
+              Diet-Talk<span className="text-purple-300">Pro</span>
             </motion.h1>
             <motion.p 
               className="mb-8 max-w-md text-center text-xl leading-relaxed"
@@ -57,7 +57,7 @@ export default function LoginPage() {
             >
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm backdrop-blur-sm">
                 <span className="h-2 w-2 rounded-full bg-purple-300"></span>
-                <span>Trusted by 5,000+ professionals</span>
+                <span>Trusted by professionals</span>
               </div>
             </motion.div>
           </div>
@@ -71,6 +71,17 @@ export default function LoginPage() {
           transition={{ delay: 0.2, duration: 0.8 }}
         >
           <div className="mx-auto w-full max-w-md">
+            <div className="mb-6 flex items-center justify-center">
+              <Link href="/" className="flex items-center gap-2">
+                <Image
+                  src="/fulllogo.png"
+                  alt="Diettalk logo"
+                  width={100}
+                  height={50}
+                  className="h-8 w-auto object-contain"
+                />
+              </Link>
+            </div>
             <div className="mb-8 text-center md:text-left">
               <motion.h1 
                 className="text-3xl font-bold tracking-tight md:text-left"
@@ -113,21 +124,7 @@ export default function LoginPage() {
                   Create an account
                 </Link>
               </p>
-              <div className="mt-4 flex items-center justify-center gap-4">
-                <Link 
-                  href="/forgot-password" 
-                  className="text-xs text-muted-foreground hover:text-purple-600 transition-colors"
-                >
-                  Forgot password?
-                </Link>
-                <span className="text-xs text-muted-foreground">•</span>
-                <Link 
-                  href="/support" 
-                  className="text-xs text-muted-foreground hover:text-purple-600 transition-colors"
-                >
-                  Need help?
-                </Link>
-              </div>
+              
             </motion.div>
           </div>
         </motion.div>

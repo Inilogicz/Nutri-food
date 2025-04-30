@@ -52,7 +52,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     >
       <div className="flex h-16 items-center justify-between border-b px-4 sm:px-6">
   <Link
-    href="/dietician/dashboard"
+    href="/"
     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
   >
     <img 

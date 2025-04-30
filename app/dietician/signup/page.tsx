@@ -18,7 +18,7 @@ export default function SignupPage() {
           />
         </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-white">
-          <h1 className="mb-6 text-4xl font-bold">Nutrifood</h1>
+          <h1 className="mb-6 text-4xl font-bold">Diet-Talk</h1>
           <p className="mb-8 max-w-md text-center text-xl">
             Join our platform of professional dieticians providing exceptional nutrition guidance
           </p>
@@ -31,6 +31,17 @@ export default function SignupPage() {
       </div>
       <div className="flex flex-col justify-center overflow-y-auto p-8 md:p-12">
         <div className="mx-auto w-full max-w-md">
+          <div className="mb-6 flex items-center justify-center">
+                        <Link href="/" className="flex items-center gap-2">
+                          <Image
+                            src="/fulllogo.png"
+                            alt="Diettalk logo"
+                            width={100}
+                            height={50}
+                            className="h-8 w-auto object-contain"
+                          />
+                        </Link>
+                      </div>
           <div className="mb-8 text-center md:text-left">
             <h1 className="text-3xl font-bold tracking-tight">
               Create your account
