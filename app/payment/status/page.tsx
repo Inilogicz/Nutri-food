@@ -16,7 +16,7 @@ export default function PaymentStatusPage() {
     const processTopUp = async () => {
       const paymentStatus = searchParams.get('status')
       const transactionId = searchParams.get('transaction_id')
-      const storedAmount = localStorage.getItem('topupAmount')
+      const storedAmount = localStorage.getItem('amount')
 
       if (paymentStatus !== 'successful') {
         setStatus('failed')
@@ -49,7 +49,7 @@ export default function PaymentStatusPage() {
         })
 
         if (response.ok) {
-          localStorage.removeItem('topupAmount')
+          localStorage.removeItem('amount')
           setStatus('success')
           setMessage(`₦${amountValue.toLocaleString()} added to your wallet!`)
         } else {
