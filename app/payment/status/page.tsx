@@ -5,67 +5,130 @@ import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
 export default function PaymentStatusPage() {
   const searchParams = useSearchParams();
   const { token } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
-  const [message, setMessage] = useState('Processing your payment...');
+  const [message, setMessage] = useState('Verifying payment...');
   const [amount, setAmount] = useState<number | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const paymentStatus = searchParams.get('status');
+    const txRef = searchParams.get('tx_ref');
+    const transactionId = searchParams.get('transaction_id');
     const storedAmount = localStorage.getItem('topupAmount');
 
-    // Clear the amount from localStorage regardless of status
+    // Clear the amount from localStorage immediately
     if (storedAmount) {
       setAmount(Number(storedAmount));
       localStorage.removeItem('topupAmount');
     }
 
-    const handlePayment = async () => {
+    const processPayment = async () => {
       try {
-        // If Flutterwave says successful, we trust that and proceed to topup
-        if (paymentStatus === 'successful' && amount) {
-          const response = await fetch('/api/proxy/user/top-up', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ amount })
-          });
+        // Step 1: Verify with Flutterwave
+        const verificationResponse = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            transaction_id: transactionId,
+            tx_ref: txRef
+          })
+        });
 
-          if (!response.ok) {
-            console.error('Top-up failed:', await response.text());
-            // Even if top-up API fails, we consider payment successful (money was taken)
-            // But we'll show a note that wallet update is pending
-            setStatus('success');
-            setMessage(`Payment received but wallet update pending. Contact support if balance doesn't update soon.`);
-            return;
-          }
-
-          setStatus('success');
-          setMessage(`You've successfully topped up your account with ₦${amount.toLocaleString()}`);
-        } else {
-          // Handle cancelled or failed payments
-          setStatus('failed');
-          setMessage(
-            paymentStatus === 'cancelled' 
-              ? 'Payment was cancelled' 
-              : 'Unfortunately, we were unable to top up your account'
-          );
+        if (!verificationResponse.ok) {
+          throw new Error('Payment verification failed');
         }
+
+        const verificationData = await verificationResponse.json();
+
+        if (verificationData.status !== 'success') {
+          throw new Error(verificationData.message || 'Payment not confirmed');
+        }
+
+        // Step 2: Process top-up (with retry logic)
+        const topupResponse = await fetch('/api/user/top-up', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            amount: amount,
+            transaction_id: transactionId,
+            tx_ref: txRef
+          })
+        });
+
+        if (!topupResponse.ok) {
+          const errorData = await topupResponse.json();
+          throw new Error(errorData.message || 'Top-up failed');
+        }
+
+        // Success case
+        setStatus('success');
+        setMessage(`Success! ₦${amount?.toLocaleString()} added to your wallet`);
+        
       } catch (error) {
         console.error('Payment processing error:', error);
+        
+        // Retry logic (max 3 times)
+        if (retryCount < 3) {
+          setRetryCount(prev => prev + 1);
+          setMessage(`Retrying... (${retryCount + 1}/3)`);
+          setTimeout(processPayment, 2000 * (retryCount + 1)); // Exponential backoff
+          return;
+        }
+
+        // Final failure
         setStatus('failed');
-        setMessage('Payment processing error. Please check your wallet balance.');
+        setMessage('Payment verified but wallet update failed. Contact support with your transaction ID.');
+
+        // Send error to backend for investigation
+        await fetch('/api/payments/log-error', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            transaction_id: transactionId,
+            tx_ref: txRef,
+            error: error.message,
+            amount: amount
+          })
+        });
       }
     };
 
-    handlePayment();
-  }, [searchParams, token, amount]);
+    if (paymentStatus === 'successful' && transactionId) {
+      processPayment();
+    } else {
+      setStatus('failed');
+      setMessage(
+        paymentStatus === 'cancelled' 
+          ? 'Payment was cancelled' 
+          : paymentStatus === 'failed'
+          ? 'Payment failed'
+          : 'Invalid payment status'
+      );
+    }
+  }, [searchParams, token, amount, retryCount]);
+
+  const handleContactSupport = () => {
+    const transactionId = searchParams.get('transaction_id');
+    const subject = `Payment Issue - TXN: ${transactionId}`;
+    const body = `I'm having issues with my payment (Transaction ID: ${transactionId}). The amount was ${amount}.`;
+    
+    window.open(`mailto:support@diet-talk.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -83,6 +146,11 @@ export default function PaymentStatusPage() {
           >
             <Loader2 className="h-12 w-12 text-purple-600 mb-4" />
             <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
+            {retryCount > 0 && (
+              <p className="text-sm text-gray-500 mt-2">
+                Taking longer than expected...
+              </p>
+            )}
           </motion.div>
         ) : status === 'success' ? (
           <>
@@ -93,7 +161,7 @@ export default function PaymentStatusPage() {
             >
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Received!</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
             <p className="text-gray-600 mb-6">
               {message}
             </p>
@@ -107,30 +175,46 @@ export default function PaymentStatusPage() {
             >
               <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Not Completed</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Issue</h1>
             <p className="text-gray-600 mb-6">
               {message}
             </p>
           </>
         )}
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Button
-            onClick={() => router.push('/wallet')}
-            className={`w-full py-6 rounded-xl text-lg font-semibold ${
-              status === 'success'
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : 'bg-red-600 hover:bg-red-700'
-            }`}
+        <div className="space-y-3">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            Back to Wallet
-          </Button>
-        </motion.div>
+            <Button
+              onClick={() => router.push('/wallet')}
+              className={`w-full py-6 rounded-xl text-lg font-semibold ${
+                status === 'success'
+                  ? 'bg-purple-600 hover:bg-purple-700'
+                  : 'bg-gray-600 hover:bg-gray-700'
+              }`}
+            >
+              Back to Wallet
+            </Button>
+          </motion.div>
 
-        {status === 'success' && (
+          {status === 'failed' && (
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                onClick={handleContactSupport}
+                className="w-full py-6 rounded-xl text-lg font-semibold bg-red-600 hover:bg-red-700"
+              >
+                Contact Support
+              </Button>
+            </motion.div>
+          )}
+        </div>
+
+        {(status === 'success' || status === 'failed') && (
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
