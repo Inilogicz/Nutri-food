@@ -5,7 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
+// Ensure the correct path to the use-toast module
+// import toast  from "@/components/ui/usetoast"; // Update the path if necessary
 
 export default function PaymentStatusPage() {
   const searchParams = useSearchParams();
@@ -101,7 +102,7 @@ export default function PaymentStatusPage() {
           body: JSON.stringify({
             transaction_id: transactionId,
             tx_ref: txRef,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
             amount: amount
           })
         });
