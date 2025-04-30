@@ -5,130 +5,77 @@ import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// Ensure the correct path to the use-toast module
-// import toast  from "@/components/ui/usetoast"; // Update the path if necessary
 
 export default function PaymentStatusPage() {
   const searchParams = useSearchParams();
   const { token } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
-  const [message, setMessage] = useState('Verifying payment...');
+  const [message, setMessage] = useState('Completing transaction...');
   const [amount, setAmount] = useState<number | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const [retries, setRetries] = useState(0);
 
   useEffect(() => {
     const paymentStatus = searchParams.get('status');
-    const txRef = searchParams.get('tx_ref');
     const transactionId = searchParams.get('transaction_id');
     const storedAmount = localStorage.getItem('topupAmount');
 
-    // Clear the amount from localStorage immediately
-    if (storedAmount) {
-      setAmount(Number(storedAmount));
-      localStorage.removeItem('topupAmount');
+    if (!storedAmount) {
+      setStatus('failed');
+      setMessage('Missing payment details. Please check your wallet balance.');
+      return;
     }
 
-    const processPayment = async () => {
-      try {
-        // Step 1: Verify with Flutterwave
-        const verificationResponse = await fetch('/api/payments/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            transaction_id: transactionId,
-            tx_ref: txRef
-          })
-        });
+    const amountValue = Number(storedAmount);
+    setAmount(amountValue);
 
-        if (!verificationResponse.ok) {
-          throw new Error('Payment verification failed');
-        }
-
-        const verificationData = await verificationResponse.json();
-
-        if (verificationData.status !== 'success') {
-          throw new Error(verificationData.message || 'Payment not confirmed');
-        }
-
-        // Step 2: Process top-up (with retry logic)
-        const topupResponse = await fetch('/api/user/top-up', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ 
-            amount: amount,
-            transaction_id: transactionId,
-            tx_ref: txRef
-          })
-        });
-
-        if (!topupResponse.ok) {
-          const errorData = await topupResponse.json();
-          throw new Error(errorData.message || 'Top-up failed');
-        }
-
-        // Success case
-        setStatus('success');
-        setMessage(`Success! ₦${amount?.toLocaleString()} added to your wallet`);
-        
-      } catch (error) {
-        console.error('Payment processing error:', error);
-        
-        // Retry logic (max 3 times)
-        if (retryCount < 3) {
-          setRetryCount(prev => prev + 1);
-          setMessage(`Retrying... (${retryCount + 1}/3)`);
-          setTimeout(processPayment, 2000 * (retryCount + 1)); // Exponential backoff
-          return;
-        }
-
-        // Final failure
-        setStatus('failed');
-        setMessage('Payment verified but wallet update failed. Contact support with your transaction ID.');
-
-        // Send error to backend for investigation
-        await fetch('/api/payments/log-error', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            transaction_id: transactionId,
-            tx_ref: txRef,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            amount: amount
-          })
-        });
-      }
-    };
-
-    if (paymentStatus === 'successful' && transactionId) {
-      processPayment();
+    if (paymentStatus === 'successful') {
+      processTopUp(amountValue, transactionId);
     } else {
       setStatus('failed');
       setMessage(
         paymentStatus === 'cancelled' 
           ? 'Payment was cancelled' 
-          : paymentStatus === 'failed'
-          ? 'Payment failed'
-          : 'Invalid payment status'
+          : 'Payment not completed'
       );
     }
-  }, [searchParams, token, amount, retryCount]);
+  }, [searchParams]);
 
-  const handleContactSupport = () => {
-    const transactionId = searchParams.get('transaction_id');
-    const subject = `Payment Issue - TXN: ${transactionId}`;
-    const body = `I'm having issues with my payment (Transaction ID: ${transactionId}). The amount was ${amount}.`;
-    
-    window.open(`mailto:support@diet-talk.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  const processTopUp = async (amount: number, transactionId: string | null) => {
+    try {
+      const response = await fetch('/api/user/top-up', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          amount,
+          transaction_id: transactionId,
+          source: 'frontend_verification'
+        })
+      });
+
+      if (response.ok) {
+        localStorage.removeItem('topupAmount');
+        setStatus('success');
+        setMessage(`Success! ₦${amount.toLocaleString()} added to your wallet`);
+      } else {
+        throw new Error(await response.text());
+      }
+    } catch (error) {
+      console.error('Top-up error:', error);
+      
+      if (retries < 2) {
+        setRetries(prev => prev + 1);
+        setMessage(`Retrying... (Attempt ${retries + 1}/3)`);
+        setTimeout(() => processTopUp(amount, transactionId), 2000 * (retries + 1));
+      } else {
+        setStatus('failed');
+        setMessage('Payment received but wallet update failed. Your balance will update soon.');
+        localStorage.removeItem('topupAmount');
+      }
+    }
   };
 
   return (
@@ -147,11 +94,6 @@ export default function PaymentStatusPage() {
           >
             <Loader2 className="h-12 w-12 text-purple-600 mb-4" />
             <h2 className="text-xl font-semibold text-gray-800">{message}</h2>
-            {retryCount > 0 && (
-              <p className="text-sm text-gray-500 mt-2">
-                Taking longer than expected...
-              </p>
-            )}
           </motion.div>
         ) : status === 'success' ? (
           <>
@@ -162,7 +104,7 @@ export default function PaymentStatusPage() {
             >
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">All Set!</h1>
             <p className="text-gray-600 mb-6">
               {message}
             </p>
@@ -176,7 +118,7 @@ export default function PaymentStatusPage() {
             >
               <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Issue</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Oops!</h1>
             <p className="text-gray-600 mb-6">
               {message}
             </p>
@@ -191,27 +133,21 @@ export default function PaymentStatusPage() {
             <Button
               onClick={() => router.push('/wallet')}
               className={`w-full py-6 rounded-xl text-lg font-semibold ${
-                status === 'success'
-                  ? 'bg-purple-600 hover:bg-purple-700'
-                  : 'bg-gray-600 hover:bg-gray-700'
+                status === 'success' ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-purple-600 hover:bg-purple-700'
               }`}
             >
-              Back to Wallet
+              {status === 'success' ? 'View Wallet' : 'Back to Wallet'}
             </Button>
           </motion.div>
 
-          {status === 'failed' && (
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+          {status === 'failed' && retries >= 2 && (
+            <Button
+              onClick={() => window.location.reload()}
+              className="w-full py-6 rounded-xl text-lg font-semibold bg-amber-600 hover:bg-amber-700"
             >
-              <Button
-                onClick={handleContactSupport}
-                className="w-full py-6 rounded-xl text-lg font-semibold bg-red-600 hover:bg-red-700"
-              >
-                Contact Support
-              </Button>
-            </motion.div>
+              Try Again
+            </Button>
           )}
         </div>
 
@@ -222,7 +158,8 @@ export default function PaymentStatusPage() {
             transition={{ delay: 0.5 }}
             className="text-sm text-gray-500 mt-4"
           >
-            Transaction ID: {searchParams.get('transaction_id') || 'N/A'}
+            {searchParams.get('transaction_id') && 
+              `Reference: ${searchParams.get('transaction_id')}`}
           </motion.p>
         )}
       </motion.div>
